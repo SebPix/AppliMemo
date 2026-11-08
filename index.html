@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AppliMémo</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#c4a33f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="AppliMémo">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="top-row">
+      <button id="btn-back" class="icon-btn" aria-label="Retour" hidden>‹</button>
+      <h1 id="view-title">MA JOURNÉE</h1>
+      <span id="save-state" class="save-state" aria-live="polite"></span>
+      <button id="btn-gear" class="icon-btn gear" aria-label="Préférences">⚙︎</button>
+    </div>
+    <div id="top-actions" class="top-actions" hidden></div>
+  </header>
+
+  <main id="app"></main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-view="journee"><span>📅</span>Journée</button>
+    <button data-view="afaire"><span>❗</span>À faire</button>
+    <button data-view="checklists"><span>☑️</span>Check-listes</button>
+    <button data-view="memos"><span>📝</span>Mémos</button>
+    <button data-view="biblio"><span>📚</span>Bibliothèque</button>
+  </nav>
+
+  <div id="print-root"></div>
+
+  <div id="pop" class="pop-back" hidden></div>
+  <div id="sheet" class="sheet" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <input type="file" id="file-import" accept="application/json,.json" hidden>
+
+  <script src="core.js"></script>
+  <script src="vault.js"></script>
+  <script src="app.js"></script>
+  <script src="journee.js"></script>
+  <script src="lists.js"></script>
+  <script src="notes.js"></script>
+  <script src="library.js"></script>
+  <script src="settings.js"></script>
+  <script src="main.js"></script>
+</body>
+
+</html>
