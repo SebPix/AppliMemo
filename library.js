@@ -109,7 +109,25 @@ function drawSelBar() {
   $$('button[data-x]', bar).forEach(b => (b.disabled = !libSel.size));
 }
 
+/* Un 2e appui sur l'onglet Bibliothèque (déjà ouverte) bascule vers « Favoris & récents » (+ accès par urgence) ; encore un appui : retour à la bibliothèque. */
+let libOverview = false;
+$('#tabbar').addEventListener('click', e => {
+  if (e.target.closest('button[data-view=biblio]') && parseRoute().name === 'biblio') { libOverview = !libOverview; render(); }
+});
+window.addEventListener('hashchange', () => { libOverview = false; });
+
+function libraryOverview(app) {
+  const notes = liveNotes(), favs = notes.filter(n => n.fav).sort((a, b) => noteTitle(a).localeCompare(noteTitle(b), 'fr'));
+  const recents = [...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 12);
+  const link = n => `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : TYPE_META[n.type].icon}</span><span class="grow">${esc(noteTitle(n))}</span></a>`;
+  app.innerHTML = `<div class="h2">★ Favoris</div>${favs.length ? favs.map(link).join('') : '<p class="empty small">Aucun favori. Touche ☆ dans une note pour en ajouter.</p>'}
+    <div class="h2">Récents</div>${recents.length ? recents.map(link).join('') : '<p class="empty small">Aucune note pour l’instant.</p>'}
+    <div class="h2">À faire — par urgence</div>
+    ${TODO_QUICK.filter(t => t.id !== 'perso').map(t => `<a class="card item lrow" href="#/afaire" data-level="${t.id}"><span>${t.icon}</span><span class="grow">${esc(t.label)}</span></a>`).join('')}`;
+}
+
 VIEWS.biblio = app => {
+  if (libOverview) return libraryOverview(app);
   app.innerHTML = `<div class="row" style="margin-bottom:10px"><input type="search" id="lib-q" class="grow" placeholder="Rechercher… (#thème, mot)" value="${esc(libQuery)}" autocomplete="off">
       <button id="lib-sel" class="${libSelect ? 'btn-gold' : ''}">${libSelect ? 'Annuler' : 'Sélection'}</button></div>
     <div id="lib-body"></div>

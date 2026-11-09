@@ -7,14 +7,15 @@ Issue de MonPlanning (Python/Toga), réécrite pour le web.
 
 ## Structure
 Barre du bas : **Journée · À faire · Check-listes · Mémos · Bibliothèque** ; roue ⚙︎ = Préférences.
+- *Mise en forme* : la flèche ▾ du bandeau (avant ✓ et ⚙︎) déplie une barre gras / italique / souligné / taille / couleur / surlignage / alignement / puces, pour les textes longs (blocs de la journée, détails des tâches, mémo divers). Le texte brut est conservé à côté du HTML (recherche, #thèmes) ; voir `rich.js` et `core.js`.
 - *À faire* : détail déroulant par ligne (▼) ; bandeau du haut : sauvegarder, versions, listes types, définir comme type, PDF.
 - *Check-listes* : lignes compactes en 1/2/3 colonnes (20 lignes minimum par colonne), texte complet dans une fenêtre centrale au clic.
-- *Mémos* : divers, mots de passe (coffre chiffré), anniversaires, web, mails, lieux, photos (Bunny).
+- *Mémos* : divers, mots de passe (coffre chiffré), anniversaires, web, mails, lieux, photos (Bunny), **mémos vocaux** (enregistrement au micro ; les sons restent dans IndexedDB sur l’appareil, ils ne sont pas dans les exports JSON).
 - *Bibliothèque* : arborescence de tout le contenu, recherche plein texte et `#thèmes`.
 
 ## Archivage automatique
 Chaque journée, note, check-liste, tâche et version a une durée d'archivage, réglable depuis le bandeau du haut (« Archive : … ») :
-🔴 illimitée · 🟠 1 année · 🔵 1 mois · ⚪ 1 semaine (bandeau vertical à gauche de l'élément). Passé ce délai **sans modification**, l'élément est effacé
+🔴 illimitée · 🟠 1 année · 🔵 1 mois · ⚪ 1 semaine · 🌈 à la demande : rien n'est effacé tout seul, l'app *propose* de supprimer à la date choisie (demain, 1 semaine, 1 mois, 1 an) (bandeau vertical à gauche de l'élément). Passé ce délai **sans modification**, l'élément est effacé
 à l'ouverture de l'app. Par défaut : illimitée. Voir `purgeExpired()` dans `app.js`.
 
 ## Fonctionnement

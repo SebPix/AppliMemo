@@ -176,7 +176,7 @@ img.big { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10p
   .pj { break-before: page; } .pj:first-child { break-before: auto; }
   .pj h2 { font-size: 18pt; border-bottom: 2px solid #c4a33f; padding-bottom: 4px; }
   .pj h3 { font-size: 13pt; margin: 14px 0 4px; color: #555; }
-  .pj pre { white-space: pre-wrap; font: inherit; margin: 4px 0 0; }
+  .pj pre, .pj .rich { white-space: pre-wrap; font: inherit; margin: 4px 0 0; }
   .pb { border-left: 6px solid #ccc; padding: 4px 10px; margin: 8px 0; break-inside: avoid; }
   .pl { list-style: none; padding: 0; } .pl li { margin: 5px 0; break-inside: avoid; }
   .pj table { width: 100%; border-collapse: collapse; } .pj td { padding: 4px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
@@ -187,7 +187,10 @@ img.big { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10p
 body { padding-top: var(--toph, calc(52px + env(safe-area-inset-top))); }
 .topbar { display: block; height: auto; padding: env(safe-area-inset-top) 0 0; }
 .top-row { display: flex; align-items: center; gap: 10px; height: 52px; padding-inline: 10px; }
-.top-actions { display: flex; gap: 6px; overflow-x: auto; padding: 0 10px 8px; scrollbar-width: none; }
+.top-row h1 { flex: none; white-space: nowrap; }
+.top-row .save-state { margin-left: auto; }
+.top-row2 { display: flex; align-items: center; gap: 6px; padding: 0 10px 8px; min-height: 42px; overflow: hidden; }
+.top-actions, .fmt-bar { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .top-actions::-webkit-scrollbar { display: none; }
 .top-actions[hidden] { display: none; }
 :root[data-theme] .top-actions button { flex: none; background: rgba(255,255,255,.24); color: #fff; min-height: 34px; padding: 4px 11px; font-size: 13px; white-space: nowrap; }
@@ -241,7 +244,7 @@ details.tree > .tags .chip { font-size: 13px; }
 
 /* --- Retouches --- */
 .empty.small { margin: 0; padding: 6px 8px 10px; }
-.top-actions { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 30px; }
+.top-actions, .fmt-bar { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 24px; }
 :root[data-theme] .top-actions button { padding: 4px 9px; font-size: 12.5px; }
 
 /* --- Code couleur d'archivage : bandeau vertical à gauche --- */
@@ -268,3 +271,97 @@ details.tree details.tree .lrow.kc { border-left-width: 4px; }
 .day-title { margin: 0; font-size: 24px; line-height: 1.2; color: var(--kc); color: color-mix(in srgb, var(--kc) 82%, #000); }
 .day-head .date-label { margin: 2px 0 6px; font-size: 13px; color: var(--muted); }
 .day-head .meta { margin: 0 0 6px; }
+
+/* --- Texte enrichi : éditeur .rte (remplace les <textarea> des textes longs) --- */
+.rte { position: relative; min-height: 160px; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 9px 11px;
+  white-space: pre-wrap; overflow-wrap: anywhere; outline: none; -webkit-user-select: text; user-select: text; }
+.rte:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(196,163,63,.25); }
+.rte.is-empty::before { content: attr(data-ph); position: absolute; left: 11px; right: 11px; color: #999; pointer-events: none; }
+.rte.big { min-height: 55vh; }
+.rte.todo-note { margin-top: 8px; min-height: 90px; }
+.rte ul, .rte ol, .rich ul, .rich ol { margin: 2px 0; padding-left: 24px; white-space: normal; }
+.rich { white-space: pre-wrap; margin: 4px 0 0; overflow-wrap: anywhere; }
+:root[data-theme=dark] .rte { background: #1f1d18; }
+@media (prefers-color-scheme: dark) { :root[data-theme=auto] .rte { background: #1f1d18; } }
+:root[data-theme] .bloc-body .rte { background: rgba(255,255,255,.8); color: #2b2b2b; }
+
+/* --- Barre de mise en forme (▾ dans le bandeau du haut) --- */
+.fmt-toggle { flex: none; font-size: 18px !important; padding: 0 8px !important; min-height: 34px; }
+.fmt-bar::-webkit-scrollbar { display: none; }
+.fmt-bar[hidden], .fmt-pop[hidden] { display: none; }
+:root[data-theme] .fmt-bar button { flex: none; background: rgba(255,255,255,.24); color: #fff; min-height: 34px; padding: 4px 9px; font-size: 12.5px; white-space: nowrap; }
+.fmt-bar span { margin-right: 4px; display: inline-block; min-width: 1em; text-align: center; }
+.vsep { flex: none; width: 1px; height: 22px; background: rgba(255,255,255,.55); }
+.fmt-pop { position: absolute; top: 100%; left: 6px; margin-top: 2px; z-index: 30; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100vw - 12px);
+  background: var(--card); color: var(--ink); border-radius: 12px; padding: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.3); }
+:root[data-theme] .fmt-pop button { min-height: 36px; padding: 4px 12px; background: rgba(127,127,127,.2); color: var(--ink); }
+:root[data-theme] .fmt-pop button.sw { width: 36px; padding: 0; border-radius: 50%; border: 2px solid rgba(127,127,127,.5); }
+
+/* Ligne du bas du bandeau : boutons <-> mise en forme (monte à l'ouverture, redescend à la fermeture) */
+.vsep { margin-left: auto; }
+.fmt-bar .vsep { margin-left: 0; }
+.fmt-bar::-webkit-scrollbar, .top-actions::-webkit-scrollbar { display: none; }
+@keyframes fmt-up { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fmt-down { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+.fmt-bar.anim { animation: fmt-up .2s ease-out; }
+.top-actions.anim { animation: fmt-down .2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .fmt-bar.anim, .top-actions.anim { animation: none; } }
+
+/* Onglet actif de la barre du bas : fond en surbrillance */
+.tabbar button.on { background: rgba(196,163,63,.22); box-shadow: inset 0 3px 0 var(--gold); }
+:root[data-theme] .tabbar button.on { background: rgba(196,163,63,.22); }
+
+/* Titre cliquable : replie la 1re carte de la page (fold 1), puis aussi la ligne de boutons sous le titre (fold 2) */
+.topbar h1 { -webkit-user-select: none; user-select: none; }
+.topbar h1.foldable { cursor: pointer; }
+body[data-hide-card] #app > :first-child { display: none; }
+body[data-hide-row] .top-row2 { display: none; }
+.top-row2[hidden], .top-row2 [hidden] { display: none !important; }
+
+/* Titre centré dans la ligne du haut (retour à gauche, ✓ et roue à droite) */
+.top-row { position: relative; }
+.top-row h1 { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 150px); overflow: hidden; text-overflow: ellipsis; text-align: center; }
+
+/* Ligne 1a déployée (appui long sur le titre) : grille de 2 à 3 boutons par ligne, rien de rogné */
+.top-row2.expanded { align-items: flex-start; }
+.top-actions.expanded, .fmt-bar.expanded { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; animation: unfold .2s ease-out; }
+:root[data-theme] .top-actions.expanded button, :root[data-theme] .fmt-bar.expanded button { width: 100%; white-space: normal; line-height: 1.15; text-align: left; }
+.top-row2.expanded .vsep { margin-top: 6px; }
+.top-row2.expanded .fmt-toggle { margin-top: 0; }
+@keyframes unfold { from { clip-path: inset(0 0 75% 0); } to { clip-path: inset(0); } }
+@media (prefers-reduced-motion: reduce) { .top-actions.expanded, .fmt-bar.expanded { animation: none; } }
+.fmt-bar.expanded .vsep { display: none; }
+.topbar h1 { -webkit-touch-callout: none; }
+
+/* Nom de l'élément en cours, petit et noir juste sous le titre (visible quand la 1re carte est repliée) */
+.top-row h1 { line-height: 24px; transition: top .12s; }
+/* Titre (24 px) + nom (14 px) = 38 px centrés dans la ligne de 52 px : 7 px au-dessus, 7 px entre le nom et la ligne 1, et le nom colle au titre */
+.top-sub { position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 31px); padding: 0 70px; text-align: center; font-size: 12px; line-height: 14px; height: 14px; font-weight: 600; color: color-mix(in srgb, var(--kc, #000) 78%, #000); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+body[data-sub] .top-row h1 { top: calc(50% - 7px); }
+.top-sub[hidden] { display: none; }
+
+/* --- Mémos vocaux --- */
+.vrec { display: flex; align-items: center; gap: 12px; }
+#v-rec { flex: 1; min-height: 52px; font-size: 17px; font-weight: 600; background: var(--gold); color: #fff; }
+:root[data-theme] #v-rec { background: var(--gold); color: #fff; }
+:root[data-theme] #v-rec.recording { background: var(--red); animation: vpulse 1.2s infinite; }
+@keyframes vpulse { 50% { filter: brightness(1.25); } }
+.vtimer { font-variant-numeric: tabular-nums; font-size: 20px; min-width: 3.2em; text-align: right; }
+.vitem audio { width: 100%; margin-top: 6px; }
+.vtitle { text-align: left; background: transparent !important; padding: 0; min-height: 0; font-weight: 600; font-size: 16px; color: var(--ink) !important; }
+
+/* --- « À la demande » : pastille arc-en-ciel --- */
+.k-ondemand { --kc: #8e44ad; }
+.kdot.k-ondemand { background: conic-gradient(#e74c3c, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6, #e74c3c); }
+.kc.k-ondemand { border-left-color: transparent; border-image: linear-gradient(to bottom, #e74c3c, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6) 1; }
+
+/* --- Onglet « + » (à gauche de la barre du bas) et son menu --- */
+.tabbar .tab-plus span { font-size: 26px; font-weight: 300; }
+:root[data-theme] .tabbar .tab-plus { flex: 0 0 64px; border-right: 1px solid var(--line); color: var(--gold); }
+.qa-list { margin: -4px 0 -6px; }
+.qa-h { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 10px 2px 2px; }
+.qa-sec:first-child .qa-h { padding-top: 0; }
+:root[data-theme] .qa-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 0; padding: 7px 4px; border-radius: 0; background: transparent; color: var(--ink);
+  text-align: left; font-size: 15px; border-bottom: 1px solid var(--line); }
+.qa-row span { width: 1.4em; text-align: center; flex: none; }
+.qa-row:active { background: rgba(127,127,127,.15); }

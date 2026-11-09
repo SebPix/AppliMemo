@@ -82,3 +82,52 @@ assert.deepEqual([jt.items[0].couleur, jt.items[0].horaire, jt.items[1].horaire,
 assert.equal(dl.lists.find(l => l.id === 'jv').keep, 'never'); assert.equal(dl.lists.find(l => l.id === 'jv').ref, '2026-11-08');
 assert.deepEqual(dl.lists.find(l => l.id === 'tv').items[0], { t: 'a', done: true, prio: 0, note: '' });
 console.log('TOUS LES TESTS OK');
+// Texte enrichi : nettoyage HTML (liste blanche), texte brut dérivé, html périmé ignoré
+{
+  const C = Core.cleanHtml;
+  assert.equal(C('<b>a</b><script>alert(1)</script><img src=x onerror=alert(1)>'), '<b>a</b>alert(1)');
+  assert.equal(C('<span style="color: rgb(192, 57, 43); position:fixed; background-image:url(x)" onclick="x()">t</span>'), '<span style="color:rgb(192, 57, 43)">t</span>');
+  assert.equal(C('<b style="color:#d32f2f;x:y">c</b>'), '<b style="color:#d32f2f">c</b>');
+assert.equal(C('<div align="center">x</div>'), '<div style="text-align:center">x</div>');
+  assert.equal(C('<font size="5" color="#ff0000" face="x">t</font><strong>g</strong><em>i</em>'), '<font size="5" color="#ff0000">t</font><b>g</b><i>i</i>');
+  assert.equal(C('<font color="red;x">t</font>'), '<font>t</font>');
+  assert.equal(C('<b>a<i>b</b>c'), '<b>a<i>b</i></b>c');                         // balises rééquilibrées
+  assert.equal(C('a</div>b<'), 'ab&lt;');                                          // fermante orpheline ignorée, « < » échappé
+  assert.ok(!/<(?!\/?(b|i|u|s|br|div|ul|ol|li|span|font)\b)/.test(C('<a href="javascript:x">l</a><iframe></iframe><style>x</style>')));
+  const T = Core.htmlText;
+  assert.equal(T('a<div>b</div><div><br></div><div>c</div>'), 'a\nb\n\nc');
+  assert.equal(T('<ul><li>un</li><li>deux &amp; &lt;trois&gt;</li></ul>'), 'un\ndeux & <trois>');
+  assert.equal(T('x<br>y<br>'), 'x\ny');
+  const day = { days: { '2026-01-01': { blocs: [
+    { id: 'ok', texte: 'a\nb', html: '<b>a</b><br>b' }, { id: 'perime', texte: 'autre', html: '<b>a</b><br>b' }, { id: 'evil', texte: 'x', html: '<b onclick="1">x</b>' } ] } },
+    todos: [{ id: 't', note: 'n', noteHtml: '<i>n</i>' }], notes: [{ id: 'd', type: 'divers', data: { text: 'q', html: '<u>q</u>' } }] };
+  const m = Core.migrate(day, '2026-01-01'), bl = m.days['2026-01-01'].blocs;
+  assert.deepEqual(bl.map(b => b.html), ['<b>a</b><br>b', undefined, '<b>x</b>']);
+  assert.equal(m.todos[0].noteHtml, '<i>n</i>'); assert.equal(m.notes[0].data.html, '<u>q</u>');
+  assert.deepEqual(Core.migrate(J(m), '2026-01-01').days, m.days);               // idempotent
+}
+console.log('texte enrichi OK');
+// Mémos vocaux : métadonnées nettoyées (le son lui-même reste dans IndexedDB)
+{
+  const m = Core.migrate({ notes: [{ id: 'v1', type: 'voice', title: 'Vocaux', data: { items: [
+    { id: 'a1', titre: 'Idée', dur: 12.4, at: 1700000000000, mime: 'audio/webm;codecs=opus', note: 'n', evil: '<x>' },
+    { id: 'a2', titre: 1, dur: -5, mime: 'text/html' }, { id: 'a3', dur: 'abc', mime: 'audio/mp4' } ] } }] }, '2026-01-01');
+  const it = m.notes[0].data.items;
+  assert.deepEqual(it[0], { id: 'a1', titre: 'Idée', dur: 12, at: 1700000000000, mime: 'audio/webm;codecs=opus', note: 'n' });
+  assert.equal(it[1].dur, 0); assert.equal(it[1].mime, ''); assert.equal(it[2].dur, 0); assert.equal(it[2].mime, 'audio/mp4');
+  assert.ok(Core.TYPES.includes('voice'));
+  console.log('mémos vocaux OK');
+}
+// « À la demande » : la date de proposition de suppression survit à la migration et à la fusion
+{
+  const s = { days: { '2026-02-02': { subtitle: 's', keep: 'ondemand', proposeAt: 1800000000000, updatedAt: 5, blocs: [] } },
+    todos: [{ id: 't', text: 'x', keep: 'ondemand', proposeAt: 1800000000000, updatedAt: 1 }],
+    notes: [{ id: 'n', type: 'divers', title: 'a', keep: 'ondemand', proposeAt: 1800000000000, updatedAt: 1, data: { text: '' } }],
+    lists: [{ id: 'l', scope: 'todo', kind: 'version', name: 'v', keep: 'ondemand', proposeAt: 1800000000000, updatedAt: 1, items: [] }] };
+  const m = Core.migrate(s, '2026-01-01');
+  assert.equal(m.days['2026-02-02'].keep, 'ondemand'); assert.equal(m.days['2026-02-02'].proposeAt, 1800000000000);
+  assert.equal(m.todos[0].proposeAt, 1800000000000); assert.equal(m.notes[0].proposeAt, 1800000000000); assert.equal(m.lists[0].proposeAt, 1800000000000);
+  assert.equal(Core.merge(m, Core.emptyState('2026-01-01'), '2026-01-01').days['2026-02-02'].proposeAt, 1800000000000);
+  assert.equal(Core.migrate({ todos: [{ id: 'x', proposeAt: 'abc', keep: 'zzz' }] }, 'd').todos[0].proposeAt, undefined);
+  console.log('à la demande OK');
+}

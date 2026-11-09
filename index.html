@@ -1,3 +1,4 @@
+d
 <!DOCTYPE html>
 <html lang="fr" data-theme="auto">
 
@@ -20,16 +21,25 @@
   <header class="topbar">
     <div class="top-row">
       <button id="btn-back" class="icon-btn" aria-label="Retour" hidden>‹</button>
-      <h1 id="view-title">MA JOURNÉE</h1>
+      <h1 id="view-title" role="button" tabindex="0" aria-label="Replier ou déplier l’en-tête">MA JOURNÉE</h1>
       <span id="save-state" class="save-state" aria-live="polite"></span>
       <button id="btn-gear" class="icon-btn gear" aria-label="Préférences">⚙︎</button>
     </div>
-    <div id="top-actions" class="top-actions" hidden></div>
+    <div id="top-sub" class="top-sub" hidden></div>
+    <div class="top-row2">
+      <div id="top-actions" class="top-actions" hidden></div>
+      <div id="fmt-bar" class="fmt-bar" role="toolbar" aria-label="Mise en forme du texte" hidden></div>
+      <i class="vsep"></i>
+      <button id="btn-fmt" class="icon-btn fmt-toggle" aria-label="Afficher la mise en forme du texte"
+        aria-expanded="false">▴</button>
+    </div>
+    <div id="fmt-pop" class="fmt-pop" hidden></div>
   </header>
 
   <main id="app"></main>
 
   <nav class="tabbar" id="tabbar">
+    <button id="tab-add" class="tab-plus" aria-label="Créer"><span>＋</span>Créer</button>
     <button data-view="journee"><span>📅</span>Journée</button>
     <button data-view="afaire"><span>❗</span>À faire</button>
     <button data-view="checklists"><span>☑️</span>Check-listes</button>
@@ -47,9 +57,12 @@
   <script src="core.js"></script>
   <script src="vault.js"></script>
   <script src="app.js"></script>
+  <script src="rich.js"></script>
   <script src="journee.js"></script>
   <script src="lists.js"></script>
   <script src="notes.js"></script>
+  <script src="voice.js"></script>
+  <script src="quickadd.js"></script>
   <script src="library.js"></script>
   <script src="settings.js"></script>
   <script src="main.js"></script>

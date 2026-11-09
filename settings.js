@@ -125,23 +125,24 @@ function groupedList(items, key, rowFn) {
 function printNote(n) {
   const d = n.data; let body = '';
   if (n.type === 'checklist') body = `<div style="column-count:${d.cols || 2};column-gap:24px">${ul(d.items.map(i => `<li>${i.done ? '☑' : '☐'} ${esc(i.t)}</li>`))}</div>`;
-  else if (n.type === 'divers') body = `<pre>${esc(d.text)}</pre>`;
+  else if (n.type === 'divers') body = Rich.view(d.html, d.text);
   else if (n.type === 'birthdays') body = `<table>${[...d.items].sort((a, b) => nextBday(a).days - nextBday(b).days).map(i =>
     `<tr><td>${i.j} ${MOIS[i.m - 1]}${i.a ? ' ' + i.a : ''}</td><td><b>${esc(i.nom)}</b></td><td>${esc(i.note)}</td></tr>`).join('')}</table>`;
   else if (n.type === 'links') body = groupedList(d.items, 'cat', i => `<li><b>${esc(i.titre || hostOf(i.url))}</b><br><small>${esc(i.url)}</small>${i.note ? `<br>${esc(i.note)}` : ''}</li>`);
   else if (n.type === 'emails') body = groupedList(d.items, 'cat', i => `<li><b>${esc(i.nom)}</b> — ${esc(i.email)}${i.note ? `<br>${esc(i.note)}` : ''}</li>`);
   else if (n.type === 'places') body = groupedList(d.items, 'cat', i => `<li><b>${esc(i.nom)}</b> — ${esc(i.adresse)}${i.note ? `<br>${esc(i.note)}` : ''}</li>`);
+  else if (n.type === 'voice') body = ul(d.items.map(i => `<li>🎙️ <b>${esc(i.titre || 'Vocal')}</b> — ${esc(dateFR(i.at || 0))} · ${fmtDur(i.dur || 0)}${i.note ? `<br>${esc(i.note)}` : ''}</li>`));
   else if (n.type === 'photos') body = [...new Set(d.items.map(i => i.album))].sort().map(a => `${a ? `<h3>${esc(a)}</h3>` : ''}<div class="pg">${d.items.filter(i => i.album === a).map(i => {
     const s = photoSrc(i.url); return `<figure>${s ? `<img src="${esc(s)}" alt="">` : ''}<figcaption>${esc(i.titre)}</figcaption></figure>`; }).join('')}</div>`).join('');
   return `<section class="pj"><h2>${TYPE_META[n.type].icon} ${esc(noteTitle(n))}</h2>${body}</section>`;
 }
 function printDay(d) {
   return `<section class="pj"><h2>📅 Journée du ${esc(longDate(d.date))}</h2>${d.subtitle ? `<p><em>${esc(d.subtitle)}</em></p>` : ''}
-    ${blocsOf(d).map(b => `<div class="pb" style="border-left-color:${esc(b.couleur)}"><b>${b.horaire ? esc(b.horaire) + ' · ' : ''}${esc(b.titre)}</b>${b.texte ? `<pre>${esc(b.texte)}</pre>` : ''}</div>`).join('')}</section>`;
+    ${blocsOf(d).map(b => `<div class="pb" style="border-left-color:${esc(b.couleur)}"><b>${b.horaire ? esc(b.horaire) + ' · ' : ''}${esc(b.titre)}</b>${b.texte ? Rich.view(b.html, b.texte) : ''}</div>`).join('')}</section>`;
 }
 function printTodos() {
   const t = newestFirst(live(state.todos));
-  return `<section class="pj"><h2>❗ À faire</h2>${ul(t.map(x => `<li>${x.done ? '☑' : '☐'} ${esc(x.text)}${x.prio ? ' ' + PRIO_LABEL[x.prio] : ''}${x.note && x.note.trim() ? `<pre>${esc(x.note.trim())}</pre>` : ''}</li>`))}</section>`;
+  return `<section class="pj"><h2>❗ À faire</h2>${ul(t.map(x => `<li>${x.done ? '☑' : '☐'} ${esc(x.text)}${x.prio ? ' ' + PRIO_LABEL[x.prio] : ''}${x.note && x.note.trim() ? Rich.view(x.noteHtml, x.note) : ''}</li>`))}</section>`;
 }
 function printKeys(keys) {
   let skipped = 0;
@@ -173,7 +174,7 @@ VIEWS.reglages = app => {
       <div class="btn-list"><button id="p-pdf-sel">Choisir les pages à exporter…</button><button id="p-pdf-all">Tout exporter</button></div></div>
 
     <div class="card"><h3>🕘 Archivage automatique</h3>
-      <p class="meta">Chaque journée, note, check-liste, tâche et version a sa propre durée d’archivage, à régler dans le bandeau du haut (« Archive : … »). Un élément est <b>effacé quand il n’a pas été modifié</b> depuis cette durée. Les éléments existants et les nouveaux sont en « Illimitée ».</p>
+      <p class="meta">Chaque journée, note, check-liste, tâche et version a sa propre durée d’archivage, à régler dans le bandeau du haut (« Archive : … »). Un élément est <b>effacé quand il n’a pas été modifié</b> depuis cette durée. Les éléments existants et les nouveaux sont en « Illimitée ». Avec <b>« À la demande »</b>, rien n’est effacé tout seul : tu choisis une date (demain, 1 semaine, 1 mois, 1 an) et l’app te <b>propose</b> alors de supprimer, de reporter ou de garder.</p>
       ${KEEP_ORDER.map(k => `<div class="item kc k-${k}" style="padding:6px 10px;margin-top:6px;background:rgba(120,120,120,.1);border-radius:8px"><strong>${esc(KEEP[k].label)}</strong><span class="meta">— ${esc(KEEP[k].desc)}</span></div>`).join('')}</div>
 
     <div class="card"><h3>🔐 Mots de passe</h3>

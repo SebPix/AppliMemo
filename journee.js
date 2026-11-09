@@ -21,20 +21,28 @@ function journeeChooser(app) {
     ${sessionDay ? `<a class="resume" href="#/journee/${sessionDay}">↩ Reprendre ${esc(longDate(sessionDay))}</a>` : ''}
   </div>`;
   $('[data-c=today]', app).onclick = () => nav('#/journee/' + today);
-  $('[data-c=date]', app).onclick = () => openSheet(`<h3>Date à définir</h3><form><input type="date" name="d" value="${today}">
-    <div class="row" style="margin-top:12px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Ouvrir</button></div></form>`, c => {
-    $('[data-no]', c).onclick = closeSheet;
-    $('form', c).onsubmit = e => { e.preventDefault(); const v = e.target.d.value; if (v) { closeSheet(); nav('#/journee/' + v); } };
-  });
+  $('[data-c=date]', app).onclick = openDateSheet;
   $('#jt-sel', app).onchange = e => { $('#jt-more', app).hidden = !e.target.value; };
   $('#jt-go', app).onclick = () => {
     const t = state.lists.find(x => x.id === $('#jt-sel', app).value), date = $('#jt-date', app).value;
     if (!t || !date) return;
-    const d = day(date), start = d.blocs.reduce((m, b) => Math.max(m, b.pos), -1) + 1;   // si la journée a déjà du contenu : on ajoute à la suite
-    t.items.forEach((i, k) => d.blocs.push(touch({ id: uid(), titre: i.titre, texte: i.texte, couleur: i.couleur, horaire: i.horaire, pos: start + k })));
-    if (t.sub && !d.subtitle) d.subtitle = t.sub;
-    touch(d); save(); toast(`Journée type « ${t.name} » appliquée.`); nav('#/journee/' + date);
+    applyDayTemplate(t, date);
   };
+}
+/** « Date à définir » : choisit un jour et l'ouvre. */
+function openDateSheet() {
+  openSheet(`<h3>Date à définir</h3><form><input type="date" name="d" value="${todayISO()}">
+    <div class="row" style="margin-top:12px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Ouvrir</button></div></form>`, c => {
+    $('[data-no]', c).onclick = closeSheet;
+    $('form', c).onsubmit = e => { e.preventDefault(); const v = e.target.d.value; if (v) { closeSheet(); nav('#/journee/' + v); } };
+  });
+}
+/** Applique une journée type à une date (si la journée a déjà du contenu : on ajoute à la suite) et l'ouvre. */
+function applyDayTemplate(t, date) {
+  const d = day(date), start = d.blocs.reduce((m, b) => Math.max(m, b.pos), -1) + 1;
+  t.items.forEach((i, k) => d.blocs.push(touch({ id: uid(), titre: i.titre, texte: i.texte, ...(i.html ? { html: i.html } : {}), couleur: i.couleur, horaire: i.horaire, pos: start + k })));
+  if (t.sub && !d.subtitle) d.subtitle = t.sub;
+  touch(d); save(); toast(`Journée type « ${t.name} » appliquée.`); nav('#/journee/' + date);
 }
 
 VIEWS.journee = (app, r) => {
@@ -42,6 +50,7 @@ VIEWS.journee = (app, r) => {
   state.current = r.date; sessionDay = r.date;
   const d = day();
   setActions([...listActions(dayCtx(d.date)), keepAction(d, () => render())]);
+  setSubtitle(longDate(d.date), d);
   const isToday = d.date === todayISO();
   const bd = typeof upcomingBirthdays === 'function' ? upcomingBirthdays(7) : [];
   app.innerHTML = `
@@ -81,7 +90,7 @@ function renderBlocs() {
       </div>
       ${open ? `<div class="bloc-body">
         <div class="tools"><button data-act="check">☑ Insérer une check-liste</button><button data-act="dup">Dupliquer</button></div>
-        <textarea placeholder="Écris ici… (#thème pour classer)">${esc(b.texte)}</textarea>
+        ${Rich.editor(b.html, b.texte, 'Écris ici… (#thème pour classer)')}
       </div>` : (b.texte || tagChips(b.titre + ' ' + b.texte) ? `<div class="bloc-body" style="padding-bottom:8px;font-size:13px;color:#555">${esc(b.texte.split('\n')[0].slice(0, 90))} ${tagChips(b.titre + ' ' + b.texte)}</div>` : '')}
     </article>`;
   }).join('');
@@ -96,7 +105,7 @@ const blocFrom = el => live(day().blocs).find(b => b.id === el.closest('.bloc')?
     const el = e.target.closest('.bloc'); if (!el) return;
     const b = blocFrom(el); if (!b) return;
     if (e.target.matches('input.titre')) b.titre = e.target.value;
-    else if (e.target.matches('textarea')) b.texte = e.target.value;
+    else if (e.target.matches('.rte')) Rich.bind(b, 'texte', 'html', e.target);
     touch(b); save();
   });
   app.addEventListener('click', e => {
@@ -188,7 +197,7 @@ function checklistPicker(b) {
     $$('button[data-id]', c).forEach(btn => (btn.onclick = () => {
       const n = noteById(btn.dataset.id);
       const lines = n.data.items.map(i => '☐ ' + i.t).join('\n');
-      b.texte = (b.texte ? b.texte + '\n' : '') + lines; touch(b); save(); closeSheet(); renderBlocs();
+      Rich.append(b, 'texte', 'html', lines); touch(b); save(); closeSheet(); renderBlocs();
     }));
   });
 }
@@ -199,7 +208,7 @@ const openTodos = new Set();   // lignes dont le détail est déroulé (affichag
 
 VIEWS.afaire = app => {
   setActions([...listActions(todoCtx()), { icon: '<i class="kdot k-never"></i>', label: 'Archive : toutes',
-    fn: () => keepSheet('', k => { live(state.todos).forEach(t => setKeep(t, k)); toast(`Archivage « ${KEEP[k].label} » appliqué à toutes les tâches.`); VIEWS.afaire($('#app')); }, 'Archivage de toutes les tâches') }]);
+    fn: () => keepSheet('', (k, at) => { live(state.todos).forEach(t => setKeep(t, k, at)); toast(`Archivage « ${KEEP[k].label} » appliqué à toutes les tâches.`); VIEWS.afaire($('#app')); }, 'Archivage de toutes les tâches') }]);
   const todos = newestFirst(live(state.todos)), open = todos.filter(t => !t.done).sort((a, b) => b.prio - a.prio), done = todos.filter(t => t.done);
   const row = t => {
     const isOpen = openTodos.has(t.id), has = !!(t.note && t.note.trim());
@@ -211,7 +220,7 @@ VIEWS.afaire = app => {
         <button class="arrow ${has ? 'has' : ''}" data-arrow aria-label="Détails" aria-expanded="${isOpen}">${isOpen ? '▲' : '▼'}</button>
         <button data-del aria-label="Supprimer">✕</button>
       </div>
-      ${isOpen ? `<textarea class="todo-note" placeholder="Détails, lignes de texte… (#thème pour classer)">${esc(t.note || '')}</textarea>`
+      ${isOpen ? Rich.editor(t.noteHtml, t.note || '', 'Détails, lignes de texte… (#thème pour classer)', 'todo-note')
         : has ? `<div class="todo-peek" data-arrow>${esc(t.note.trim().split('\n')[0].slice(0, 80))}</div>` : ''}
     </div>`;
   };
@@ -233,15 +242,15 @@ VIEWS.afaire = app => {
   $$('.todo', app).forEach(el => {
     const t = state.todos.find(x => x.id === el.dataset.id);
     // toucher le bandeau coloré (marge gauche de la carte) change la durée d'archivage de la tâche
-    el.addEventListener('click', e => { if (e.target === el && e.offsetX <= 22) { const k = nextKeep(keepOf(t)); setKeep(t, k); toast(`Archive : ${KEEP[k].label}`); VIEWS.afaire(app); } });
+    el.addEventListener('click', e => { if (e.target === el && e.offsetX <= 22) cycleKeep(t, k => { toast(`Archive : ${KEEP[k].label}`); VIEWS.afaire(app); }); });
     $('input[type=checkbox]', el).onchange = e => { t.done = e.target.checked; touch(t); save(); VIEWS.afaire(app); };
     $('input[type=text]', el).oninput = e => { t.text = e.target.value; touch(t); save(); };
     $('.prio', el).onclick = () => { t.prio = (t.prio + 1) % 3; touch(t); save(); VIEWS.afaire(app); };
     $$('[data-arrow]', el).forEach(b => (b.onclick = () => {
       openTodos.has(t.id) ? openTodos.delete(t.id) : openTodos.add(t.id); VIEWS.afaire(app);
-      if (openTodos.has(t.id)) $('.todo[data-id="' + t.id + '"] textarea').focus();
+      if (openTodos.has(t.id)) $('.todo[data-id="' + t.id + '"] .rte').focus();
     }));
-    const ta = $('.todo-note', el); if (ta) ta.oninput = e => { t.note = e.target.value; touch(t); save(); };
+    const ta = $('.todo-note', el); if (ta) ta.oninput = e => { Rich.bind(t, 'note', 'noteHtml', e.target); touch(t); save(); };
     $('[data-del]', el).onclick = () => withUndo('Tâche supprimée', () => { kill(t); VIEWS.afaire(app); });
   });
 };

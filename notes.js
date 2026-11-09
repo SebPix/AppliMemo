@@ -16,6 +16,7 @@ function noteText(n) {
   const d = n.data;
   if (n.type === 'divers') return d.text;
   if (n.type === 'password') return '';
+  if (n.type === 'voice') return d.items.map(i => [i.titre, i.note].filter(Boolean).join(' ')).join('\n');
   return d.items.map(it => Object.entries(it).filter(([k, v]) => k !== 'id' && k !== 'done' && v !== null && v !== '').map(([, v]) => v).join(' ')).join('\n');
 }
 function noteMeta(n) {
@@ -23,6 +24,7 @@ function noteMeta(n) {
   if (n.type === 'checklist') return `${d.items.filter(i => i.done).length}/${d.items.length}`;
   if (n.type === 'divers') return d.text.replace(/\s+/g, ' ').slice(0, 40);
   if (n.type === 'password') return '🔒';
+  if (n.type === 'voice') return `${d.items.length} enregistrement${d.items.length > 1 ? 's' : ''}`;
   return `${d.items.length} élément${d.items.length > 1 ? 's' : ''}`;
 }
 const noteTitle = n => n.title || TYPE_META[n.type].one;
@@ -43,20 +45,13 @@ VIEWS.memos = app => {
   const notes = liveNotes().filter(n => n.type !== 'checklist');
   const favs = notes.filter(n => n.fav), recents = [...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5);
   const list = arr => arr.map(n => `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${TYPE_META[n.type].icon}</span>
-    <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(noteMeta(n))}</span></a>`).join('');
+    <span class="grow">${esc(noteTitle(n))}</span></a>`).join('');   // favoris et récents : le titre seulement
   app.innerHTML = `
-    <button class="btn-gold" id="m-new" style="width:100%;margin-bottom:12px">＋ Nouveau mémo</button>
     <div class="tiles">${MEMO_TYPES.map(t => `<a class="tile" href="#/memos/type/${t}"><span class="ti">${TYPE_META[t].icon}</span>
       <strong>${TYPE_META[t].label}</strong><span class="meta">${notes.filter(n => n.type === t).length}</span></a>`).join('')}</div>
     ${favs.length ? `<div class="h2">★ Favoris</div>${list(favs)}` : ''}
     ${recents.length ? `<div class="h2">Récents</div>${list(recents)}` : '<p class="empty">Aucun mémo pour l’instant.<br>Choisis un type ci-dessus pour commencer.</p>'}`;
-  $('#m-new').onclick = typePicker;
 };
-function typePicker() {
-  openSheet(`<h3>Nouveau mémo</h3><div class="btn-list">${MEMO_TYPES.map(t =>
-    `<button data-t="${t}">${TYPE_META[t].icon} ${TYPE_META[t].one}</button>`).join('')}</div>`, c =>
-    $$('[data-t]', c).forEach(b => (b.onclick = () => createNoteFlow(b.dataset.t))));
-}
 function createNoteFlow(type) {
   const m = TYPE_META[type], divers = type === 'divers';
   promptSheet(divers ? 'Nom du mémo' : `Nouveau : ${m.one}`,
@@ -90,17 +85,19 @@ VIEWS.checklists = app => {
       <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(noteMeta(n))}</span></a>`).join('')
       : '<p class="empty">Aucune check-liste.<br>Crée-en une, ou pars d’une liste type.</p>'}`;
   $('#cl-new').onclick = () => createNoteFlow('checklist');
-  $('#cl-tpl').onclick = () => {
-    const ts = listsFor({ scope: 'checklist' }, 'template');
-    openSheet(`<h3>Nouvelle check-liste depuis une liste type</h3>${ts.length ? `<div class="btn-list">${ts.map(t => `<button data-id="${t.id}"><strong>${esc(t.name)}</strong>
-      <span class="meta">${countLabel(t.items.length)}</span></button>`).join('')}</div>` : '<p class="empty small">Aucune liste type. Ouvre une check-liste puis « Définir comme type ».</p>'}`, c =>
-      $$('[data-id]', c).forEach(btn => (btn.onclick = () => {
-        const t = state.lists.find(x => x.id === btn.dataset.id);
-        const n = newNote('checklist', t.name);
-        n.data.items = t.items.map(i => ({ id: uid(), t: i.t, done: false })); touch(n); save(); closeSheet(); nav('#/note/' + n.id);
-      })));
-  };
+  $('#cl-tpl').onclick = checklistFromTemplate;
 };
+/** Nouvelle check-liste à partir d'une liste type. */
+function checklistFromTemplate() {
+  const ts = listsFor({ scope: 'checklist' }, 'template');
+  openSheet(`<h3>Nouvelle check-liste depuis une liste type</h3>${ts.length ? `<div class="btn-list">${ts.map(t => `<button data-id="${t.id}"><strong>${esc(t.name)}</strong>
+    <span class="meta">${countLabel(t.items.length)}</span></button>`).join('')}</div>` : '<p class="empty small">Aucune liste type. Ouvre une check-liste puis « Définir comme type ».</p>'}`, c =>
+    $$('[data-id]', c).forEach(btn => (btn.onclick = () => {
+      const t = state.lists.find(x => x.id === btn.dataset.id);
+      const n = newNote('checklist', t.name);
+      n.data.items = t.items.map(i => ({ id: uid(), t: i.t, done: false })); touch(n); save(); closeSheet(); nav('#/note/' + n.id);
+    })));
+}
 
 /* ---------- Page d'une note ---------- */
 VIEWS.note = (app, r) => {
@@ -111,7 +108,7 @@ VIEWS.note = (app, r) => {
   const dupNote = () => {
     const c = JSON.parse(JSON.stringify(n));
     Object.assign(c, { id: uid(), title: noteTitle(n) + ' (copie)', fav: false, updatedAt: now() }); delete c.deletedAt;
-    if (c.data.items) c.data.items.forEach((it, i) => (it.id = uid() + i));
+    if (c.data.items) c.data.items.forEach((it, i) => { const old = it.id; it.id = uid() + i; if (c.type === 'voice') copyAudio(old, it.id); });
     state.notes.push(c); save(); toast('Note dupliquée.'); nav('#/note/' + c.id);
   };
   const delNote = () => confirmSheet(`Supprimer « ${noteTitle(n)} » ?`, 'Supprimer',
@@ -120,30 +117,21 @@ VIEWS.note = (app, r) => {
       <div class="row"><span style="font-size:22px">${TYPE_META[n.type].icon}</span>
         <input id="n-title" class="grow titre-big" value="${esc(n.title)}" placeholder="${esc(TYPE_META[n.type].one)}">
         <button id="n-fav" aria-label="Favori">${n.fav ? '★' : '☆'}</button></div>
-      ${isCL ? '' : `<div class="row wrap" style="margin-top:8px">
-        <button data-na="dup">Dupliquer</button>
-        ${n.type !== 'password' ? '<button data-na="pdf">PDF</button>' : ''}
-        <button data-na="del" class="btn-red">Supprimer</button></div>`}
       ${expiryLabel(n) ? `<div class="meta" style="margin-top:6px">${esc(expiryLabel(n))}</div>` : ''}
       <div id="n-tags" class="tags"></div></div>
     <div id="n-body"></div>`;
   const refreshTags = () => { $('#n-tags').innerHTML = tagChips(n.title + ' ' + noteText(n), 12); };
   refreshTags();
-  $('#n-title').oninput = e => { n.title = e.target.value; touch(n); save(); };
+  setSubtitle(noteTitle(n), n);
+  $('#n-title').oninput = e => { n.title = e.target.value; touch(n); save(); setSubtitle(noteTitle(n), n); };
   $('#n-title').onchange = refreshTags;
   $('#n-fav').onclick = () => { n.fav = !n.fav; touch(n); save(); $('#n-fav').textContent = n.fav ? '★' : '☆'; };
-  if (isCL) {
-    // Dupliquer / PDF / Supprimer + sauvegarde, versions, listes types : dans le bandeau du haut
-    setActions([keepAction(n, () => render()), { icon: '⧉', label: 'Dupliquer', fn: dupNote }, { icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) },
-      { icon: '🗑', label: 'Supprimer', fn: delNote, cls: 'danger' }, ...listActions(checkCtx(n), { pdf: false })]);
-  } else {
-    setActions([keepAction(n, () => render())]);
-    $('[data-na=dup]', app).onclick = dupNote;
-    const pdf = $('[data-na=pdf]', app); if (pdf) pdf.onclick = () => printKeys(['n:' + n.id]);
-    $('[data-na=del]', app).onclick = delNote;
-  }
+  // Dupliquer / PDF / Supprimer : dans la ligne 1a du bandeau (+ sauvegarde, versions, listes types pour les check-listes). Pas de PDF pour le coffre.
+  setActions([keepAction(n, () => render()), { icon: '⧉', label: 'Dupliquer', fn: dupNote },
+    ...(n.type !== 'password' ? [{ icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) }] : []),
+    { icon: '🗑', label: 'Supprimer', fn: delNote, cls: 'danger' }, ...(isCL ? listActions(checkCtx(n), { pdf: false }) : [])]);
   const box = $('#n-body');
-  ({ checklist: bodyChecklist, divers: bodyDivers, password: bodyPassword }[n.type] || bodyItems)(box, n, refreshTags);
+  ({ checklist: bodyChecklist, divers: bodyDivers, password: bodyPassword, voice: bodyVoice }[n.type] || bodyItems)(box, n, refreshTags);
 };
 
 /* ---------- Fenêtre centrale sur fond flou (texte complet d'une ligne) ---------- */
@@ -210,9 +198,9 @@ function bodyChecklist(box, n) {
 
 /* ---------- Mémo divers ---------- */
 function bodyDivers(box, n, refreshTags) {
-  box.innerHTML = `<textarea id="d-text" style="min-height:55vh" placeholder="Écris ici… (#thème pour classer)">${esc(n.data.text)}</textarea>`;
+  box.innerHTML = Rich.editor(n.data.html, n.data.text, 'Écris ici… (#thème pour classer)', 'big');
   const t = debounce(refreshTags, 500);
-  $('#d-text').oninput = e => { n.data.text = e.target.value; touch(n); save(); t(); };
+  $('.rte', box).oninput = e => { Rich.bind(n.data, 'text', 'html', e.target); touch(n); save(); t(); };
 }
 
 /* ---------- Mémos à liste d'éléments : anniversaires, web, mails, lieux, photos ---------- */
