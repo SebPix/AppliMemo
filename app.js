@@ -9,8 +9,10 @@ const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const TYPE_META = {
   checklist: { icon: '☑️', label: 'Check-listes', one: 'Check-liste', def: 'Check-liste' },
+  todo:      { icon: '❗', label: 'À faire', one: 'Note À faire', def: 'À faire' },
   password:  { icon: '🔐', label: 'Mots de passe', one: 'Coffre de mots de passe', def: 'Mots de passe' },
   divers:    { icon: '📝', label: 'Mémos divers', one: 'Mémo divers', def: '' },
+  ecritures: { icon: '✍️', label: 'Écritures', one: 'Écriture', def: 'Écriture' },
   birthdays: { icon: '🎂', label: 'Anniversaires', one: 'Anniversaires', def: 'Anniversaires' },
   links:     { icon: '🌐', label: 'Adresses web', one: 'Adresses web', def: 'Adresses web' },
   emails:    { icon: '✉️', label: 'Adresses mail', one: 'Adresses mail', def: 'Adresses mail' },
@@ -32,6 +34,8 @@ function longDate(iso) {
   return `${JOURS[new Date(y, m - 1, d).getDay()]} ${pad(d)} ${MOIS[m - 1]} ${y}`;
 }
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+/** Barre de recherche des onglets racine (sous les premiers boutons). */
+const searchHTML = (id, ph, v = '') => `<input type="search" id="${id}" class="root-q" placeholder="${ph}" value="${esc(v)}" autocomplete="off">`;
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 async function copyText(text, what = 'Copié') {
   try { await navigator.clipboard.writeText(text); toast(what + ' ✓'); } catch (e) { toast('Copie impossible.'); }
@@ -41,7 +45,7 @@ async function copyText(text, what = 'Copié') {
 function loadPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { /* ignoré */ }
-  return Object.assign({ theme: 'auto', lockMin: 2, bunny: '' }, p);
+  return Object.assign({ theme: 'auto', lockMin: 2, bunny: '', levelDays: {} }, p);
 }
 let prefs = loadPrefs();
 function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* ignoré */ } applyTheme(); }
@@ -68,7 +72,7 @@ function day(iso = state.current) {
 const dayIsEmpty = d => !d.subtitle && !live(d.blocs).length;
 const liveDays = () => Object.values(state.days).filter(d => !dayIsEmpty(d)).sort((a, b) => b.date.localeCompare(a.date));
 const liveNotes = () => live(state.notes);
-const MEMO_TYPES = Core.TYPES.filter(t => t !== 'checklist');   // les check-listes ont leur propre onglet
+const MEMO_TYPES = Core.TYPES.filter(t => t !== 'checklist' && t !== 'todo');   // check-listes et notes À faire ont leur propre onglet
 const noteById = id => liveNotes().find(n => n.id === id);
 
 let saveTimer = null;
@@ -152,7 +156,7 @@ function dueProposals(t = Date.now()) {
   const out = [];
   for (const d of liveDays()) if (isDue(d, t)) out.push({ x: d, kind: 'La journée', name: longDate(d.date), wipe: wipeDay });
   for (const x of live(state.todos)) if (isDue(x, t)) out.push({ x, kind: 'La tâche', name: x.text || '(sans texte)', wipe: wipeTodo });
-  for (const x of live(state.notes)) if (isDue(x, t)) out.push({ x, kind: 'Le mémo', name: `${TYPE_META[x.type].icon} ${noteTitle(x)}`, wipe: wipeNote });
+  for (const x of live(state.notes)) if (isDue(x, t)) out.push({ x, kind: 'Le mémo', name: `${noteIcon(x)} ${noteTitle(x)}`, wipe: wipeNote });
   for (const x of live(state.lists)) if (isDue(x, t)) out.push({ x, kind: x.kind === 'template' ? 'La liste type' : 'La version', name: x.name, wipe: wipeList });
   return out;
 }
@@ -236,32 +240,69 @@ function promptSheet(title, { label = '', value = '', okLabel = 'OK', type = 'te
 const VIEWS = {};            // rempli par les fichiers de vues : VIEWS[nom] = (app, params) => …
 let renderTok = 0;           // invalide les rendus asynchrones périmés
 let navCount = 0;            // nombre de navigations depuis le chargement (pour le bouton retour)
-const TITLES = { journee: 'MA JOURNÉE', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
+const APP_VERSION = '1.1.3';
+const TITLES = { menu: `APPLI MEMO / version N° ${APP_VERSION}`, journee: 'MA JOURNÉE', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
 
 function parseRoute() {
   const parts = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/').filter(Boolean);
-  const name = parts[0] || 'journee';
+  const name = parts[0] || 'menu';
   if (name === 'memos' && parts[1] === 'type') return { name: 'type', type: parts[2] };
   if (name === 'note') return { name: 'note', id: parts[1] };
   if (name === 'tag') return { name: 'tag', key: parts[1] };
+  if (name === 'checklists' && parts[1] === 'type' && parts[2]) return { name: 'cltype', id: parts[2] };
+  if (name === 'afaire' && parts[1] === 'tout') return { name: 'atout' };
+  if (name === 'afaire' && parts[1] === 'theme') return { name: 'atheme', theme: parts.slice(2).join('/') };
+  if (name === 'journee' && parts[1] === 'type') return { name: 'jtype' };
   if (name === 'journee') return { name: 'journee', date: /^\d{4}-\d{2}-\d{2}$/.test(parts[1] || '') ? parts[1] : null };
   return VIEWS[name] ? { name } : { name: 'journee', date: null };
 }
-const TAB_OF = { journee: 'journee', afaire: 'afaire', checklists: 'checklists', memos: 'memos', type: 'memos', note: 'memos', biblio: 'biblio', tag: 'biblio', reglages: null };
-const PARENT = { type: '#/memos', note: '#/memos', tag: '#/biblio', reglages: '#/journee' };
+const TAB_OF = { journee: 'journee', afaire: 'afaire', checklists: 'checklists', memos: 'memos', type: 'memos', note: 'memos', biblio: 'biblio', tag: 'biblio', atheme: 'afaire', atout: 'afaire', cltype: 'checklists', jtype: 'journee', reglages: null };
+const PARENT = { cltype: '#/checklists', jtype: '#/journee', atheme: '#/afaire', atout: '#/afaire', type: '#/memos', note: '#/memos', tag: '#/biblio', reglages: '#/menu' };
 
+/* Mémoire par onglet : on retrouve la dernière fenêtre ouverte dans un onglet en y revenant depuis un autre ; un clic sur l'onglet déjà actif ramène à sa racine. */
+const tabLast = {};
+/* Page MENU d'accueil : tous les onglets en gros boutons, plus Préférences et ＋ Créer (barre du bas masquée sur cette page). */
+VIEWS.menu = app => {
+  const T = [['journee', '📅', 'Journée'], ['afaire', '❗', 'À faire'], ['checklists', '☑️', 'Check-listes'], ['memos', '📝', 'Mémos'], ['biblio', '📚', 'Bibliothèque'], ['quick', '<b class="rb-star">★</b>', 'Accès rapide']];
+  app.innerHTML = `<div class="menu-wrap"><div class="menu-all"><div class="menu-grid">${T.map(([v, ic, lab]) => `<button type="button" class="menu-btn" data-go="${v}"><span class="mi">${ic}</span><strong>${lab}</strong></button>`).join('')}</div>
+    <div class="menu-low"><button type="button" class="menu-small" data-go="reglages" aria-label="Préférences"><span class="mi">⚙︎</span><span>Préférences</span></button>
+    <button type="button" class="menu-small menu-create" id="menu-add" aria-label="Créer"><span class="mi">＋</span><span>Créer</span></button></div></div></div>`;
+  $$('[data-go]', app).forEach(b => (b.onclick = () => {
+    const v = b.dataset.go;
+    if (v === 'reglages') return nav('#/reglages');
+    if (v === 'biblio' || v === 'quick') { libOverview = v === 'quick'; return nav('#/biblio'); }   // Bibliothèque et Accès rapide : deux boutons distincts
+    nav(rememberedHash(v));   // un onglet s'ouvre sur sa dernière fenêtre
+  }));
+  $('#menu-add', app).onclick = quickAddSheet;
+};
+const tabOf = r => { const n = r.name === 'note' ? noteById(r.id) : null; return n && n.type === 'checklist' ? 'checklists' : n && n.type === 'todo' ? 'afaire' : TAB_OF[r.name]; };
+const rememberedHash = tab => {
+  const h = tabLast[tab]; if (!h) return '#/' + tab;
+  const parts = decodeURIComponent(h.replace(/^#\/?/, '')).split('/').filter(Boolean);
+  const gone = (parts[0] === 'note' && !noteById(parts[1]))
+    || (parts[0] === 'checklists' && parts[1] === 'type' && !state.lists.some(l => l.id === parts[2] && l.kind === 'template' && !l.deletedAt));
+  return gone ? '#/' + tab : h;   // la note ou la liste type a été supprimée : retour à la racine
+};
 function nav(hash) { if (location.hash === hash) render(); else location.hash = hash; }
 function render() {
   closeSheet();
+  if (!['note', 'atheme', 'atout'].includes(parseRoute().name)) dueShown = '';   // l'échéance des tâches est reproposée à chaque ouverture d'une fenêtre À faire
+  adoptLegacyTodos();   // anciennes tâches isolées → une note « À faire » (une seule fois)
   const r = parseRoute();
   const app = $('#app');
   renderTok++;
   const n = r.name === 'note' ? noteById(r.id) : null;
-  const tab = n && n.type === 'checklist' ? 'checklists' : TAB_OF[r.name];
+  const tab = n && n.type === 'checklist' ? 'checklists' : n && n.type === 'todo' ? 'afaire' : TAB_OF[r.name];
   $$('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === tab));
+  if (tab) tabLast[tab] = location.hash || '#/' + tab;
   $('#btn-back').hidden = !PARENT[r.name];
   $('#view-title').textContent = TITLES[r.name] || '';
   topSub = '';
+  document.body.classList.remove('tpl-page');
+  document.body.classList.toggle('on-menu', r.name === 'menu');   // page MENU : pas de barre d'onglets en bas   // fond vert des listes types : posé par leur vue
+  $$('.top-row .tnav').forEach(x => x.remove()); $('.top-row').classList.remove('has-nav', 'has-tgl');
+  { const fr = $('#filter-rows'); fr.hidden = true; fr.innerHTML = ''; }   // lignes de filtres : propres à la liste complète d'Accès rapide   // flèches de durée : propres à la fenêtre d'un niveau
+  libChrome(r);
   setActions(null);
   VIEWS[r.name](app, r);
   syncTop();
@@ -282,7 +323,20 @@ function setActions(list) {
   $('#top-actions').innerHTML = topActions.map((a, i) => `<button data-i="${i}" class="${a.cls || ''}"><span>${a.icon}</span>${esc(a.label)}</button>`).join('');
   syncTop();
 }
-$('#top-actions').addEventListener('click', e => { const b = e.target.closest('button'); if (b) topActions[+b.dataset.i].fn(); });
+// appui d'1 s sur un bouton qui a une action « hold » (ex. thématique : renommer / supprimer) ; le clic qui suit est alors ignoré
+let holdTimer = 0, held = false;
+$('#top-actions').addEventListener('pointerdown', e => {
+  const b = e.target.closest('button'), a = b && topActions[+b.dataset.i];
+  clearTimeout(holdTimer); held = false;
+  if (a && a.hold) holdTimer = setTimeout(() => { held = true; a.hold(); }, 1000);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('#top-actions').addEventListener(ev, () => clearTimeout(holdTimer)));
+$('#top-actions').addEventListener('contextmenu', e => e.preventDefault());
+$('#top-actions').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (held) { held = false; return; }
+  topActions[+b.dataset.i].fn();
+});
 function updateTop() { document.documentElement.style.setProperty('--toph', $('.topbar').offsetHeight + 'px'); }
 window.addEventListener('resize', updateTop);
 function setTitle(t) { $('#view-title').textContent = t; }
@@ -292,7 +346,7 @@ function setTitle(t) { $('#view-title').textContent = t; }
 const FOLD_STEPS = [[0, 0], [1, 0], [1, 1], [1, 0]];
 let foldIdx = 0;
 let actionsExpanded = false, shownLine = '';   // appui long (1 s) sur le titre : la ligne visible (1a ou 1b) se déploie à la verticale (2 à 3 boutons par ligne)
-const hasCard = () => { const c = $('#app').firstElementChild; return !!c && !c.matches('.empty'); };
+const hasCard = () => { const c = $('#app').firstElementChild; return !!c && c.matches('.day-head, .note-head'); };   // seules les vraies cartes d'en-tête (journée, mémo) se replient avec le titre ; jamais le contenu de la fenêtre
 function topLines() {
   const has1a = topActions.length > 0, has1b = !!$('#app .rte');
   const show1b = has1b && (fmtOpen || !has1a);
@@ -360,10 +414,17 @@ $('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.k
 // un éditeur de texte qui apparaît / disparaît change la disponibilité de la ligne 1b
 new MutationObserver(syncTop).observe($('#app'), { childList: true, subtree: true });   // callbacks déjà groupés par le navigateur
 window.addEventListener('hashchange', () => { navCount++; foldIdx = 0; actionsExpanded = false; render(); });
-$('#tabbar').addEventListener('click', e => { const b = e.target.closest('button[data-view]'); if (b) nav('#/' + b.dataset.view); });
-$('#btn-gear').onclick = () => nav('#/reglages');
+$('#tabbar').addEventListener('click', e => {
+  const b = e.target.closest('button[data-view]'); if (!b) return;
+  const v = b.dataset.view, cur = tabOf(parseRoute());
+  nav(cur === v ? '#/' + v : rememberedHash(v));   // autre onglet : dernière fenêtre ; onglet actif : racine
+});
+// roue crantée : 1 clic = Préférences ; 2 clics rapprochés = retour à la page MENU d'accueil
+let gearAt = 0;
+$('#btn-gear').onclick = () => { const t = Date.now(); if (t - gearAt < 450) { gearAt = 0; nav('#/menu'); } else { gearAt = t; nav('#/reglages'); } };
 $('#btn-back').onclick = () => {
   const r = parseRoute();
   const n = r.name === 'note' ? noteById(r.id) : null;
-  if (navCount > 0) history.back(); else nav(n ? (n.type === 'checklist' ? '#/checklists' : `#/memos/type/${n.type}`) : PARENT[r.name] || '#/memos');
+  if (r.name === 'atheme' || r.name === 'atout' || (n && n.type === 'todo')) return nav('#/afaire');   // fenêtres À faire : retour direct à l'onglet racine (même après avoir circulé entre durées)
+  if (navCount > 0) history.back(); else nav(n ? (n.type === 'checklist' ? '#/checklists' : n.type === 'todo' ? '#/afaire' : `#/memos/type/${n.type}`) : PARENT[r.name] || '#/memos');
 };

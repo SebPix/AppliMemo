@@ -3,7 +3,7 @@
  * Modèle (v3) :
  *   days   : journées indexées par date → { subtitle, updatedAt, blocs:[bloc] }
  *   todos  : liste « À faire »
- *   notes  : mémos typés (checklist, password, divers, birthdays, links, emails, places, photos, voice)
+ *   notes  : mémos typés (checklist, password, divers, ecritures, birthdays, links, emails, places, photos, voice)
  *   vault  : paramètres de chiffrement du coffre à mots de passe (jamais le mot de passe lui-même)
  * Chaque élément porte id, updatedAt (ms) et, s'il est supprimé, deletedAt (« pierre tombale »)
  * pour que la suppression se propage à la fusion. La version la plus récente de chaque id gagne.
@@ -12,7 +12,7 @@
 (function (root) {
   'use strict';
   const SCHEMA = 3;
-  const TYPES = ['checklist', 'password', 'divers', 'birthdays', 'links', 'emails', 'places', 'photos', 'voice'];
+  const TYPES = ['checklist', 'todo', 'password', 'divers', 'ecritures', 'birthdays', 'links', 'emails', 'places', 'photos', 'voice'];
   const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -166,12 +166,16 @@
     const scope = ['checklist', 'day'].includes(x.scope) ? x.scope : 'todo';
     const item = scope === 'day'
       ? i => withRich({ titre: str(i && i.titre, 500), texte: str(i && i.texte), couleur: color(i && i.couleur, '#ffffff'), horaire: i && TIME_RE.test(i.horaire) ? i.horaire : null }, 'html', i && i.html, str(i && i.texte))
-      : i => withRich({ t: str(i && i.t, 1000), done: !!(i && i.done), prio: i && [0, 1, 2].includes(i.prio) ? i.prio : 0, note: str(i && i.note, 20000) }, 'noteHtml', i && i.noteHtml, str(i && i.note, 20000));
+      : i => (scope === 'checklist' && i && i.blk) ? { t: str(i.t, 20000), done: false, prio: 0, note: '', blk: true } : withRich({ t: str(i && i.t, 1000), done: !!(i && i.done), prio: i && [0, 1, 2].includes(i.prio) ? i.prio : 0, note: str(i && i.note, 20000) }, 'noteHtml', i && i.noteHtml, str(i && i.note, 20000));
     return Object.assign(o, { scope, kind: x.kind === 'template' ? 'template' : 'version', ref: ID_RE.test(x.ref) ? x.ref : '',
-      name: str(x.name, 200), sub: str(x.sub, 500), keep: keep(x.keep), items: arr(x.items).slice(0, 2000).map(item) });
+      name: str(x.name, 200), sub: str(x.sub, 500), keep: keep(x.keep), items: arr(x.items).slice(0, 2000).map(item),
+      ...(scope === 'checklist' && [1, 2, 3].includes(+x.cols) ? { cols: +x.cols } : {}) });
   };
   const ITEM_NORM = {
-    checklist: (x, i) => ({ id: iid(x, i), t: str(x.t, 1000), done: !!x.done }),
+    checklist: (x, i) => (x.blk ? { id: iid(x, i), t: str(x.t, 20000), done: false, blk: true } : { id: iid(x, i), t: str(x.t, 1000), done: !!x.done }),   // blk : bloc de texte pleine largeur
+    todo: (x, i) => withRich({ id: iid(x, i), t: str(x.t, 1000), done: !!x.done, prio: [0, 1, 2].includes(x.prio) ? x.prio : 0, note: str(x.note, 20000),
+      ...(str(x.theme, 60) ? { theme: str(x.theme, 60) } : {}), ...(num(x.due) > 0 ? { due: Math.round(num(x.due)) } : {}),
+      ...(x.cl && typeof x.cl === 'object' ? { cl: { items: arr(x.cl.items).slice(0, 2000).map((it, k) => ITEM_NORM.checklist(it && typeof it === 'object' ? it : {}, k)), cols: [1, 2, 3].includes(+x.cl.cols) ? +x.cl.cols : 2 } } : {}) }, 'noteHtml', x.noteHtml, str(x.note, 20000)),
     birthdays: (x, i) => ({ id: iid(x, i), nom: str(x.nom, 200), j: int(x.j, 1, 31) || 1, m: int(x.m, 1, 12) || 1,
       a: int(x.a, 1000, 3000), note: str(x.note, 2000) }),
     links: (x, i) => ({ id: iid(x, i), titre: str(x.titre, 300), url: safeUrl(x.url), cat: str(x.cat, 80), note: str(x.note, 2000) }),
@@ -190,9 +194,10 @@
     if (!o || !TYPES.includes(x.type)) return null;
     Object.assign(o, { type: x.type, title: str(x.title, 200), fav: !!x.fav, keep: keep(x.keep) });
     const d = x.data && typeof x.data === 'object' ? x.data : {};
-    if (x.type === 'divers') o.data = withRich({ text: str(d.text) }, 'html', d.html, str(d.text));
+    if (x.type === 'divers' || x.type === 'ecritures') o.data = withRich({ text: str(d.text) }, 'html', d.html, str(d.text));
     else if (x.type === 'password') o.data = { enc: normEnc(d.enc), kid: str(d.kid, 100) };
     else if (x.type === 'checklist') o.data = { items: arr(d.items).map((it, i) => ITEM_NORM.checklist(it && typeof it === 'object' ? it : {}, i)), cols: [1, 2, 3].includes(+d.cols) ? +d.cols : 2 };
+    else if (x.type === 'todo') o.data = { items: arr(d.items).map((it, i) => ITEM_NORM.todo(it && typeof it === 'object' ? it : {}, i)), level: ['urgentissime', 'urgent', 'moyen', 'long', 'infini'].includes(d.level) ? d.level : '' };
     else o.data = { items: arr(d.items).map((it, i) => ITEM_NORM[x.type](it && typeof it === 'object' ? it : {}, i)).filter(it => !('url' in it && it.url === '' && x.type === 'photos')) };
     return o;
   }

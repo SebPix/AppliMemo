@@ -1,20 +1,17 @@
 /* Versions enregistrées et listes types — partagées par « À faire » et les check-listes.
  *
  * Un « contexte » décrit la liste courante :
- *   { scope: 'todo' | 'checklist', ref: id de la check-liste ('' pour À faire), label,
+ *   { scope: 'todo' | 'checklist', ref: id de la note (check-liste ou À faire), label,
  *     items(): [{t, done, prio, note}], apply(items), refresh(), pdf() }
  * Versions : propres à une liste (scope + ref). Listes types : communes à tout le scope. */
 'use strict';
 
-const todoCtx = () => ({
-  scope: 'todo', ref: '', label: 'À faire',
-  items: () => newestFirst(live(state.todos)).map(t => ({ t: t.text, done: t.done, prio: t.prio, note: t.note || '', ...(t.noteHtml ? { noteHtml: t.noteHtml } : {}) })),
-  apply(items) {
-    live(state.todos).forEach(kill);
-    [...items].reverse().forEach(i => state.todos.push(touch({ id: uid(), text: i.t, done: !!i.done, prio: i.prio || 0, note: i.note || '', ...(i.noteHtml ? { noteHtml: i.noteHtml } : {}) })));
-  },
-  refresh: () => VIEWS.afaire($('#app')),
-  pdf: () => printKeys(['todo']),
+const todoCtx = n => ({
+  scope: 'todo', ref: n.id, label: noteTitle(n),
+  items: () => n.data.items.map(t => ({ t: t.t, done: t.done, prio: t.prio, note: t.note || '', ...(t.noteHtml ? { noteHtml: t.noteHtml } : {}) })),
+  apply(items) { n.data.items = items.map(i => ({ id: uid(), t: i.t, done: !!i.done, prio: i.prio || 0, note: i.note || '', ...(i.noteHtml ? { noteHtml: i.noteHtml } : {}) })); touch(n); },
+  refresh: () => render(),
+  pdf: () => printKeys(['n:' + n.id]),
 });
 /** Journée : versions propres à une date ; journées types communes. Sauvegarder fixe aussi la durée de la journée. */
 const dayCtx = date => ({
@@ -34,8 +31,8 @@ const dayCtx = date => ({
 });
 const checkCtx = n => ({
   scope: 'checklist', ref: n.id, label: noteTitle(n),
-  items: () => n.data.items.map(i => ({ t: i.t, done: i.done, prio: 0, note: '' })),
-  apply(items) { n.data.items = items.map(i => ({ id: uid(), t: i.t, done: !!i.done })); touch(n); },
+  items: () => n.data.items.map(i => (i.blk ? { t: i.t, done: false, prio: 0, note: '', blk: true } : { t: i.t, done: i.done, prio: 0, note: '' })),
+  apply(items) { n.data.items = items.map(i => (i.blk ? { id: uid(), t: i.t, done: false, blk: true } : { id: uid(), t: i.t, done: !!i.done })); touch(n); },
   refresh: () => render(),
   pdf: () => printKeys(['n:' + n.id]),
 });

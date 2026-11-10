@@ -10,15 +10,15 @@
 const TODO_QUICK = [
   { id: 'urgentissime', icon: '🔥', label: 'Urgentissime' },
   { id: 'urgent', icon: '❗', label: 'Urgent' },
-  { id: 'moyen', icon: '🗓️', label: 'Moyen terme' },
-  { id: 'long', icon: '🌱', label: 'Long terme' },
+  { id: 'moyen', icon: '🌱', label: 'Moyen terme' },
+  { id: 'long', icon: '🌲', label: 'Long terme' },
+  { id: 'infini', icon: '♾️', label: 'Infini' },
   { id: 'perso', icon: '✏️', label: 'Note personnalisée' },
 ];
 
 function quickTodo(level) {
   closeSheet();
-  nav('#/afaire');
-  setTimeout(() => { const i = $('#todo-new'); if (i) i.focus(); }, 80);   // à compléter : appliquer le niveau « level »
+  if (level === 'perso') nav('#/afaire'); else openLevelNote(level);   // ouverture directe de la note du niveau
 }
 
 /** Journée type : choisit la date puis le modèle. */

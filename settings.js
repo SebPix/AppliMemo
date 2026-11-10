@@ -73,7 +73,6 @@ function subsetState(keys) {
   let pw = false;
   for (const k of keys) {
     if (k.startsWith('d:') && state.days[k.slice(2)]) { const d = clone(state.days[k.slice(2)]); d.blocs = live(d.blocs); s.days[d.date] = d; }
-    else if (k === 'todo') s.todos = clone(live(state.todos));
     else if (k.startsWith('n:')) { const n = noteById(k.slice(2)); if (n) { s.notes.push(clone(n)); if (n.type === 'password') pw = true; } }
   }
   if (pw && state.vault) s.vault = clone(state.vault);
@@ -124,8 +123,9 @@ function groupedList(items, key, rowFn) {
 }
 function printNote(n) {
   const d = n.data; let body = '';
-  if (n.type === 'checklist') body = `<div style="column-count:${d.cols || 2};column-gap:24px">${ul(d.items.map(i => `<li>${i.done ? '☑' : '☐'} ${esc(i.t)}</li>`))}</div>`;
-  else if (n.type === 'divers') body = Rich.view(d.html, d.text);
+  if (n.type === 'checklist') body = `<div style="column-count:${d.cols || 2};column-gap:24px">${ul(d.items.map(i => i.blk ? `<li style="list-style:none;column-span:all;white-space:pre-wrap">${esc(i.t)}</li>` : `<li>${i.done ? '☑' : '☐'} ${esc(i.t)}</li>`))}</div>`;
+  else if (n.type === 'todo') body = ul(d.items.map(x => `<li>${x.done ? '☑' : '☐'} ${esc(x.t)}${x.prio ? ' ' + PRIO_LABEL[x.prio] : ''}${x.note && x.note.trim() ? Rich.view(x.noteHtml, x.note) : ''}</li>`));
+  else if (n.type === 'divers' || n.type === 'ecritures') body = Rich.view(d.html, d.text);
   else if (n.type === 'birthdays') body = `<table>${[...d.items].sort((a, b) => nextBday(a).days - nextBday(b).days).map(i =>
     `<tr><td>${i.j} ${MOIS[i.m - 1]}${i.a ? ' ' + i.a : ''}</td><td><b>${esc(i.nom)}</b></td><td>${esc(i.note)}</td></tr>`).join('')}</table>`;
   else if (n.type === 'links') body = groupedList(d.items, 'cat', i => `<li><b>${esc(i.titre || hostOf(i.url))}</b><br><small>${esc(i.url)}</small>${i.note ? `<br>${esc(i.note)}` : ''}</li>`);
@@ -134,22 +134,18 @@ function printNote(n) {
   else if (n.type === 'voice') body = ul(d.items.map(i => `<li>🎙️ <b>${esc(i.titre || 'Vocal')}</b> — ${esc(dateFR(i.at || 0))} · ${fmtDur(i.dur || 0)}${i.note ? `<br>${esc(i.note)}` : ''}</li>`));
   else if (n.type === 'photos') body = [...new Set(d.items.map(i => i.album))].sort().map(a => `${a ? `<h3>${esc(a)}</h3>` : ''}<div class="pg">${d.items.filter(i => i.album === a).map(i => {
     const s = photoSrc(i.url); return `<figure>${s ? `<img src="${esc(s)}" alt="">` : ''}<figcaption>${esc(i.titre)}</figcaption></figure>`; }).join('')}</div>`).join('');
-  return `<section class="pj"><h2>${TYPE_META[n.type].icon} ${esc(noteTitle(n))}</h2>${body}</section>`;
+  return `<section class="pj"><h2>${noteIcon(n)} ${esc(noteTitle(n))}</h2>${body}</section>`;
 }
 function printDay(d) {
   return `<section class="pj"><h2>📅 Journée du ${esc(longDate(d.date))}</h2>${d.subtitle ? `<p><em>${esc(d.subtitle)}</em></p>` : ''}
     ${blocsOf(d).map(b => `<div class="pb" style="border-left-color:${esc(b.couleur)}"><b>${b.horaire ? esc(b.horaire) + ' · ' : ''}${esc(b.titre)}</b>${b.texte ? Rich.view(b.html, b.texte) : ''}</div>`).join('')}</section>`;
-}
-function printTodos() {
-  const t = newestFirst(live(state.todos));
-  return `<section class="pj"><h2>❗ À faire</h2>${ul(t.map(x => `<li>${x.done ? '☑' : '☐'} ${esc(x.text)}${x.prio ? ' ' + PRIO_LABEL[x.prio] : ''}${x.note && x.note.trim() ? Rich.view(x.noteHtml, x.note) : ''}</li>`))}</section>`;
 }
 function printKeys(keys) {
   let skipped = 0;
   const days = keys.filter(k => k.startsWith('d:')).map(k => state.days[k.slice(2)]).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
   const notes = keys.filter(k => k.startsWith('n:')).map(k => noteById(k.slice(2))).filter(Boolean)
     .filter(n => (n.type === 'password' ? (skipped++, false) : true)).sort((a, b) => Core.TYPES.indexOf(a.type) - Core.TYPES.indexOf(b.type) || noteTitle(a).localeCompare(noteTitle(b), 'fr'));
-  const parts = [...days.map(printDay), ...(keys.includes('todo') ? [printTodos()] : []), ...notes.map(printNote)];
+  const parts = [...days.map(printDay), ...notes.map(printNote)];
   if (!parts.length) return toast(skipped ? 'Les mots de passe ne s’exportent pas en PDF.' : 'Rien à exporter.');
   $('#print-root').innerHTML = parts.join('');
   if (skipped) toast('Coffre de mots de passe exclu du PDF.');
@@ -177,6 +173,10 @@ VIEWS.reglages = app => {
       <p class="meta">Chaque journée, note, check-liste, tâche et version a sa propre durée d’archivage, à régler dans le bandeau du haut (« Archive : … »). Un élément est <b>effacé quand il n’a pas été modifié</b> depuis cette durée. Les éléments existants et les nouveaux sont en « Illimitée ». Avec <b>« À la demande »</b>, rien n’est effacé tout seul : tu choisis une date (demain, 1 semaine, 1 mois, 1 an) et l’app te <b>propose</b> alors de supprimer, de reporter ou de garder.</p>
       ${KEEP_ORDER.map(k => `<div class="item kc k-${k}" style="padding:6px 10px;margin-top:6px;background:rgba(120,120,120,.1);border-radius:8px"><strong>${esc(KEEP[k].label)}</strong><span class="meta">— ${esc(KEEP[k].desc)}</span></div>`).join('')}</div>
 
+    <div class="card"><h3>❗ Conservation des notes À faire</h3>
+      <p class="meta">Durée (en jours) avant effacement d’une note sans modification, selon son niveau. <b>0 = illimitée.</b> S’applique aux notes créées ou changées de niveau ensuite.</p>
+      ${todoLevels().map(l => `<label class="row" style="margin-top:6px"><span class="grow">${l.icon} ${esc(l.label)}</span><input type="number" min="0" max="3650" inputmode="numeric" data-ld="${l.id}" value="${levelDays(l.id)}" style="width:90px"></label>`).join('')}</div>
+
     <div class="card"><h3>🔐 Mots de passe</h3>
       <p class="meta">${v ? (vaultKey ? 'Coffre déverrouillé.' : 'Coffre verrouillé.') : 'Aucun mot de passe de coffre défini.'}</p>
       <div class="btn-list">
@@ -194,9 +194,13 @@ VIEWS.reglages = app => {
       <button disabled>Se connecter (bientôt)</button></div>
 
     <div class="card"><h3>⚠️ Zone sensible</h3><button class="btn-red" id="p-wipe">Tout effacer</button></div>
-    <p class="meta" style="text-align:center">AppliMémo 1.1.1 · données stockées sur cet appareil</p>`;
+    <p class="meta" style="text-align:center">AppliMémo ${APP_VERSION} · données stockées sur cet appareil</p>`;
   $('#p-theme').value = prefs.theme; $('#p-theme').onchange = e => { prefs.theme = e.target.value; savePrefs(); };
   $('#p-lock').value = String(prefs.lockMin); $('#p-lock').onchange = e => { prefs.lockMin = +e.target.value; savePrefs(); armLock(); };
+  $$('[data-ld]').forEach(i => (i.onchange = () => {
+    const v = Math.max(0, Math.min(3650, Math.round(+i.value) || 0)); i.value = v;
+    prefs.levelDays = { ...prefs.levelDays, [i.dataset.ld]: v }; savePrefs(); toast('Durée enregistrée ✓');
+  }));
   $('#p-exp').onclick = () => exportJSON();
   $('#p-exp-sel').onclick = () => { libSelect = true; nav('#/biblio'); toast('Coche les pages puis touche « JSON ».'); };
   $('#p-imp').onclick = () => $('#file-import').click();

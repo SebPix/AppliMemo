@@ -23,7 +23,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   window.onerror = (m) => ok(false, 'erreur JS: ' + m);
   w.print = () => { w.__printed = true; };
   try {
-    // --- Démarrage
+    // --- Démarrage : page MENU d'accueil
+    ok(w.location.hash === '#/menu' && $('#view-title').innerText === 'APPLI MEMO / version N° 1.1.3', 'démarrage : page MENU, titre « APPLI MEMO / version N° x.x.x »');
+    ok($$('#app .menu-btn').map(b => b.innerText.trim().replace(/^\S+\s*/, '')).join('|') === 'Journée|À faire|Check-listes|Mémos|Bibliothèque|Accès rapide' && !!$('#app [data-go=reglages]') && $$('#app .menu-btn').every(b => Math.abs(b.offsetWidth - b.offsetHeight) < 3) && $('#menu-add').offsetWidth < 100 && Math.abs($('#menu-add').offsetWidth - $('#app [data-go=reglages]').offsetWidth) < 3, 'MENU : gros boutons pour tous les onglets, Préférences et Créer');
+    ok(getComputedStyle($('#tabbar')).display === 'none', 'MENU : barre d\'onglets du bas masquée');
+    click('#app [data-go=checklists]'); await wait(60); ok(w.location.hash === '#/checklists' && getComputedStyle($('#tabbar')).display !== 'none', 'MENU › Check-listes : onglets visibles');
+    click('#btn-gear'); await wait(30); ok(w.location.hash === '#/reglages', 'roue crantée : 1 clic = Préférences'); click('#btn-gear'); await wait(60); ok(w.location.hash === '#/menu', 'roue crantée : 2 clics = retour au MENU');
     const tabs = $$('#tabbar button[data-view]').map(b => b.dataset.view);
     ok(tabs.join() === 'journee,afaire,checklists,memos,biblio', 'barre du bas : Journée, À faire, Check-listes, Mémos, Bibliothèque (dans cet ordre)');
     { // onglet « + » à gauche : menu de création
@@ -34,7 +39,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!$('#sheet details') && groups.join('|') === 'Journée|À faire|Check-listes|Mémo', 'menu « + » : liste plate (pas de menus déroulants), titres Journée, À faire, Check-listes, Mémo');
       const lab = g => $$(`#sheet .qa-sec[data-g=${g}] [data-qa]`).map(b => b.textContent.trim());
       ok(lab('journee').join('|') === '📅Aujourd’hui|🗓️Date à définir|🧩Journée type', 'menu « + » : Journée › Aujourd\'hui, Date à définir, journée type');
-      ok(lab('afaire').length === 5 && ['Urgentissime', 'Urgent', 'Moyen terme', 'Long terme', 'Note personnalisée'].every((x, i) => lab('afaire')[i].includes(x)), 'menu « + » : À faire › urgentissime, urgent, moyen terme, long terme, note personnalisée');
+      ok(lab('afaire').length === 6 && ['Urgentissime', 'Urgent', 'Moyen terme', 'Long terme', 'Infini', 'Note personnalisée'].every((x, i) => lab('afaire')[i].includes(x)), 'menu « + » : À faire › urgentissime, urgent, moyen terme, long terme, note personnalisée');
       ok(lab('checklists').length === 2 && lab('checklists')[0].includes('Nouvelle') && lab('checklists')[1].includes('liste type'), 'menu « + » : Check-listes › nouvelle, depuis une liste type');
       ok(lab('memos').length === 8 && lab('memos').some(x => x.includes('Mémo divers')) && lab('memos').some(x => x.includes('Mémo vocal')), 'menu « + » : Mémo › tous les types de mémo (' + lab('memos').length + ')');
       click('#sheet [data-qa=j-today]'); await wait(80);
@@ -44,7 +49,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       click('#sheet [data-no]'); click('#tab-add'); click('#sheet [data-qa=j-type]'); await wait(40);
       ok($('#sheet').innerText.includes('Journée type') && !!$('#sheet #qa-date'), 'menu « + » : Journée type (date + modèle)');
       click('#sheet [data-close]'); click('#tab-add'); click('#sheet [data-qa=t-urgent]'); await wait(150);
-      ok(w.location.hash === '#/afaire' && d.activeElement && d.activeElement.id === 'todo-new', 'menu « + » : À faire › ouvre À faire, curseur sur « Nouvelle tâche… » (en préparation)');
+      ok(!!$('#sheet form') && $('#sheet h3').innerText.includes('Urgent'), 'menu « + » : À faire › Urgent demande le nom d\'une nouvelle note'); click('#sheet [data-no]');
       click('#tab-add'); click('#sheet [data-qa=m-divers]'); await wait(40);
       ok($('#sheet').innerText.includes('Nom du mémo'), 'menu « + » : Mémo › Mémo divers demande le nom');
       click('#sheet [data-no]');
@@ -55,9 +60,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // --- Journée : écran d'ouverture à 3 choix
     ok(w.location.hash === '#/journee' && $$('#app [data-c], #app .bigcard').length === 3, 'journée : à l\'ouverture, 3 choix');
-    const choose = $('#app .choose').innerText;
+    const choose = $('#app .choose3').innerText;
     ok(choose.includes('Aujourd’hui') && choose.includes('Date à définir') && choose.includes('Journée type'), 'choix : Aujourd\'hui · Date à définir · Journée type');
-    ok($('#jt-sel').disabled && !$('#top-actions').offsetParent, 'journée type : menu vide désactivé ; pas de barre d\'actions sur l\'écran de choix');
+    click('[data-c=type]'); await wait(40); ok(w.location.hash === '#/journee/type' && $('#jt-sel').disabled, 'journée type : bouton → fenêtre dédiée, menu vide désactivé'); await go('#/journee');
     click('[data-c=date]'); await wait(30);
     { const f2 = $('#sheet form'); f2.elements.d.value = '2026-03-14'; submit(f2); } await wait(80);
     ok(w.location.hash === '#/journee/2026-03-14' && $('.day-title').innerText.toLowerCase().includes('14 mars 2026') && !$('.date-label'), 'Date à définir : ouvre la journée choisie (titre = date)');
@@ -104,9 +109,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // --- À faire : ligne de détail + barre d'actions du bandeau
     await go('#/afaire');
-    ok(!$('#top-actions').hidden && ['Sauvegarder', 'Versions', 'Listes types', 'Définir comme type', 'PDF'].every(x => $('#top-actions').innerText.includes(x)), 'À faire : barre d\'actions dans le bandeau');
+    ok($$('#app .lvl-tile').length === 5 && $('#app .lvl-tile').innerText.includes('Urgentissime (NOW)'), 'À faire : 4 cases (urgentissime NOW, urgent, moyen terme, long terme)');
+    { const r = $$('#app .lvl-tile').map(b => b.getBoundingClientRect());
+      ok(r[0].top === r[1].top && r[1].top === r[2].top && r[3].top === r[4].top && r[3].top > r[0].top && r[0].left < r[1].left && r[1].left < r[2].left, 'À faire : 3 cases sur la 1re ligne (NOW, urgent, moyen), 2 dessous (long, infini)'); }
+    ok(/3 jours|1 semaine|1 mois|1 an|Illimité/.test($('#app .lvl-tile .keep-hint').innerText) && $('#app .lvl-tile .keep-hint').innerText === '3 jours', 'À faire : durée de conservation affichée discrètement sur la case');
+    ok(!$('#todo-new') && !$('#sheet form'), 'À faire : accueil = cases (pas de tâches directes)');
+    click('#app [data-lvl=urgent]'); await wait(100);
+    const TNid = S().notes.find(n => n.type === 'todo').id, TNn = () => S().notes.find(n => n.id === TNid);
+    ok(!$('#sheet form') && TNn().data.level === 'urgent' && TNn().title === 'Urgent' && w.location.hash === '#/note/' + TNid, 'À faire : une case ouvre directement la note du niveau (aucun nom demandé)');
+    ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Toutes') && !$('#top-actions').innerText.includes('Sauvegarder'), 'À faire : 1a = thématiques (plus de Sauvegarder / PDF…)');
     for (const t of ['Appeler Paul', 'Acheter du pain']) { type('#todo-new', t); submit($('#todo-form')); }
-    ok(S().todos.length === 2, 'À faire : 2 tâches');
+    ok(TNn().data.items.length === 2 && TNn().data.items[0].t === 'Acheter du pain', 'À faire : 2 tâches dans la note, la plus récente en haut');
+    { const h = $('.card.todo').getBoundingClientRect().height; ok(h > 0 && h <= 40, 'À faire : tâches compactes (' + Math.round(h) + 'px)'); }
     { // lignes 1a (boutons) / 1b (mise en forme) : la flèche n'existe que si les deux existent
       const vis = s => { const e = $(s); return !!e && getComputedStyle(e).display !== 'none'; };
       await wait(60);
@@ -146,27 +160,110 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!vis('.top-row2') && !vis('#btn-fmt'), 'lignes : page sans bouton ni texte à remplir → seule la ligne titre');
       const s3 = [st()]; click('#view-title'); await wait(20); s3.push(st()); click('#view-title'); await wait(20); s3.push(st());
       ok(s3.join() === '--,c-,--', 'titre : sans ligne 1a/1b, un appui masque la carte, le suivant la rétablit (aucun clic inutile) (' + s3.join() + ')');
-      await go('#/afaire'); await wait(60);
+      await go('#/note/' + TNid); await wait(60);
     }
     click('.todo [data-arrow]'); await wait(50);
     ok(!!$('.todo-note'), 'À faire : la flèche déploie la zone de texte');
     typeRte('.todo-note', 'Demander le devis\nRappeler jeudi #Chantier');
-    ok(S().todos.some(t => t.note.includes('devis')), 'À faire : détail enregistré');
+    ok(TNn().data.items.some(t => t.note.includes('devis')), 'À faire : détail enregistré');
     click('.todo [data-arrow]'); await wait(50); ok(!$('.todo-note') && txt().includes('Demander'), 'À faire : repliable, aperçu de la 1re ligne');
-    const act = l => click($$('#top-actions button').find(b => b.innerText.includes(l)));
-    const todoOrder = () => S().todos.filter(t => !t.deletedAt).map(t => t.text).sort().join('|');
-    act('Sauvegarder'); fill0 = () => { const f2 = $('#sheet form'); f2.elements.v.value = 'V1'; submit(f2); }; fill0(); await wait(50);
-    ok(S().lists.some(l => l.kind === 'version' && l.scope === 'todo' && l.name === 'V1' && l.items.length === 2 && l.keep === 'week'), 'À faire : version sauvegardée, grise par défaut');
-    type('#todo-new', 'Tâche en trop'); submit($('#todo-form')); ok(S().todos.filter(t => !t.deletedAt).length === 3, 'À faire : 3 tâches avant restauration');
-    act('Versions'); await wait(30); click('#sheet [data-load]'); await wait(80);
-    ok(S().todos.filter(t => !t.deletedAt).length === 2 && todoOrder() === 'Acheter du pain|Appeler Paul', 'À faire : ancienne version rechargée');
-    ok(S().todos.some(t => !t.deletedAt && t.note.includes('devis')), 'À faire : détails conservés dans la version');
-    act('Définir comme type'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Ma liste type'; submit(f2); } await wait(50);
-    ok(S().lists.some(l => l.kind === 'template' && l.name === 'Ma liste type' && l.keep === 'never'), 'À faire : liste type (modèle) en illimité');
-    S().todos.forEach(t => {}); w.eval("live(state.todos).forEach(kill); VIEWS.afaire($('#app'))"); await wait(30);
-    ok(txt().includes('Rien à faire'), 'À faire : vidée');
-    act('Listes types'); await wait(30); click('#sheet [data-load]'); await wait(80);
-    ok(S().todos.filter(t => !t.deletedAt).length === 2, 'À faire : liste type sélectionnée');
+    { // fenêtre d'un niveau : thématiques en 1a, date d'effacement par tâche (« i »), échéances à l'ouverture
+      const first = $('.card.todo'), t0 = TNn().data.items[0];
+      ok(!!t0.due && Math.abs(t0.due - (Date.now() + 7 * 864e5)) < 60000, 'À faire : chaque tâche reçoit sa date d\'effacement (Urgent = 7 jours)');
+      ok(!first.querySelector('.prio') && !!first.querySelector('[data-info]'), 'À faire : le bouton « i » remplace ! / !!');
+      click('.todo [data-info]'); await wait(40);
+      ok($('#inf-k').innerText === 'Conservation de la tâche = 1 semaine' && $('#inf-s').innerText.startsWith('Sera effacée le ') && /\d{2}\/\d{2}\/\d{4}/.test($('#inf-s').innerText), 'À faire : « i » = « Conservation de la tâche = 1 semaine » + « Sera effacée le jj/mm/aaaa »');
+      const tid0 = t0.id, before = $('#inf-s').innerText;
+      click('#sheet [data-l="long"]'); await wait(40);
+      { const lg = S().notes.find(n => n.data.level === 'long'), it = lg && lg.data.items.find(i => i.id === tid0);
+        ok(!!it && !TNn().data.items.some(i => i.id === tid0) && $('#inf-k').innerText.endsWith('1 an') && $('#inf-s').innerText !== before && it.due > Date.now() + 360 * 864e5, 'À faire : modifier la durée → la tâche bascule dans la bonne catégorie, date mise à jour'); }
+      click('#sheet [data-l="urgent"]'); await wait(40);
+      ok(TNn().data.items.some(i => i.id === tid0) && $('#inf-k').innerText.endsWith('1 semaine'), 'À faire : et peut revenir');
+      click('#sheet [data-no]'); await wait(30);
+      { const c0 = $$('.card.todo')[0]; ok(!!c0.querySelector('[data-themepick]') && c0.querySelector('[data-themepick]').innerText.trim() === '∅', 'À faire : chaque tâche a un bouton thématique, ∅ par défaut');
+        click(c0.querySelector('[data-themepick]')); await wait(30);
+        ok($$('#sheet [data-t]').map(b => b.innerText.trim()).join('|').startsWith('∅ Sans thématique|T Travail|M Maison|P Perso'), 'À faire : choix ∅ ou une thématique existante');
+        click('#sheet [data-t="Maison"]'); await wait(40);
+        ok(TNn().data.items.some(i => i.id === tid0 && i.theme === 'Maison'), 'À faire : tâche affectée à une thématique');
+        click($$('.card.todo')[0].querySelector('[data-themepick]')); await wait(30); click('#sheet [data-t=""]'); await wait(40);
+        ok(!TNn().data.items.find(i => i.id === tid0).theme, 'À faire : retour à ∅'); }
+      ok($$('#top-actions button').some(b => b.innerText.trim() === '∅'), 'À faire : « ∅ » = thématique supplémentaire (sans thématique) en ligne 1a');
+      click('#sheet [data-no]');
+      // thématiques : défauts, ajout, filtre, renommage, suppression
+      const chips = () => $$('#top-actions button').map(b => b.innerText.trim());
+      ok(chips().join('|') === 'Toutes|Travail|Maison|Perso|∅|＋' && $('.theme-title').innerText === 'Toutes notes', 'À faire : 1a = Toutes / Travail / Maison / Perso / ＋ ; titre « Toutes notes »');
+      ok(!$('#n-title') && $('#view-title').innerText.includes('À FAIRE') && $('#view-title .title-pill').innerText.includes('Urgent') && getComputedStyle($('#view-title .title-pill')).backgroundColor === 'rgb(255, 255, 255)', 'À faire : icône du niveau à gauche du titre, pas de carte de nom');
+      click($$('#top-actions button').find(b => b.innerText.trim() === 'Travail')); await wait(40);
+      ok($('.theme-title').innerText === 'Travail' && !$('.card.todo'), 'À faire : thématique choisie → nom affiché, tâches filtrées');
+      type('#todo-new', 'Rapport'); submit($('#todo-form'));
+      ok(TNn().data.items.find(i => i.t === 'Rapport').theme === 'Travail', 'À faire : nouvelle tâche rangée dans la thématique choisie');
+      click($$('#top-actions button').find(b => b.innerText.trim() === '＋')); await wait(40);
+      { const f2 = $('#sheet form'); f2.elements.v.value = 'Sport'; submit(f2); } await wait(40);
+      ok(chips().includes('Sport') && $('.theme-title').innerText === 'Sport', 'À faire : nouvelle thématique créée');
+      w.eval("topActions.find(a => a.label === 'Sport').hold()"); await wait(30);
+      ok(!!$('#sheet [data-r]') && !!$('#sheet [data-d]'), 'À faire : appui long → modifier le nom / supprimer');
+      click('#sheet [data-r]'); await wait(30); { const f2 = $('#sheet form'); f2.elements.v.value = 'Fitness'; submit(f2); } await wait(40);
+      ok(chips().includes('Fitness') && !chips().includes('Sport'), 'À faire : thématique renommée');
+      w.eval("topActions.find(a => a.label === 'Fitness').hold()"); await wait(30); click('#sheet [data-d]'); await wait(30);
+      ok(!!$('#sheet [data-ok]'), 'À faire : suppression d\'une thématique avec confirmation'); click('#sheet [data-ok]'); await wait(40);
+      ok(!chips().includes('Fitness') && $('.theme-title').innerText === 'Toutes notes', 'À faire : thématique supprimée');
+      // échéances : proposées à l'ouverture, suppression ou report des tâches cochées
+      TNn().data.items.forEach(i => { i.due = Date.now() - 864e5; }); w.eval('save()');
+      await go('#/afaire'); await go('#/note/' + TNid); await wait(60);
+      ok(!!$('#sheet #due-all') && $$('#sheet input[data-id]').length === TNn().data.items.length, 'À faire : tâches échues proposées à l\'ouverture (liste à cocher)');
+      click('#sheet [data-del]'); await wait(30);
+      ok(TNn().data.items.length === 2 && !!$('#sheet'), 'À faire : rien de coché → rien de supprimé');
+      click('#sheet #due-all'); $('#sheet #due-all').dispatchEvent(new w.Event('change')); click('#sheet [data-post]'); await wait(40);
+      ok(TNn().data.items.every(i => i.due > Date.now() + 6 * 864e5), 'À faire : « Reporter » repart pour la durée du niveau');
+      TNn().data.items.forEach(i => { i.due = Date.now() - 1000; }); w.eval('save()');
+      await go('#/afaire'); await go('#/note/' + TNid); await wait(60);
+      const nb = TNn().data.items.length; { const b = $$('#sheet input[data-id]')[0]; b.checked = true; b.dispatchEvent(new w.Event('change')); }
+      click('#sheet [data-del]'); await wait(60);
+      ok(TNn().data.items.length === nb - 1, 'À faire : « Supprimer » retire les tâches cochées');
+      TNn().data.items.forEach(i => { i.due = 0; }); w.eval('save()');
+    }
+    { // les cases ouvrent directement la note de leur niveau (pas de nom demandé) ; NOW, infini
+      await go('#/afaire'); click('#app [data-lvl=urgentissime]'); await wait(100);
+      const nowN = S().notes.find(n => n.type === 'todo' && n.data.level === 'urgentissime');
+      ok(!$('#sheet form') && nowN && nowN.title === 'NOW' && w.location.hash === '#/note/' + nowN.id, 'À faire : la case NOW ouvre directement la note NOW');
+      await go('#/afaire'); click('#app [data-lvl=urgentissime]'); await wait(100);
+      ok(S().notes.filter(n => n.type === 'todo' && n.data.level === 'urgentissime').length === 1, 'À faire : une seule note par niveau');
+      ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Check-liste'), 'NOW : bouton « Check-liste » en ligne 1a');
+      const impN = w.eval("(() => { const x = newNote('checklist', 'Import test'); x.data.items = [{ id: 'ia', t: 'A', done: false }, { id: 'ib', t: 'B', done: true }]; save(); return x; })()"); w.eval('render()'); await wait(40);
+      click($$('#top-actions button').find(b => b.innerText.includes('Check-liste'))); await wait(40);
+      ok($('#sheet').innerText.includes('Importer le contenu d’une check-liste'), 'NOW : fenêtre « importer le contenu d\'une check-liste »');
+      { const src = S().notes.find(x => x.id === impN.id); ok(!!src && !!$('#sheet [data-src="' + src.id + '"]') && !!$('#sheet [data-tpl]'), 'NOW : check-listes + listes types proposées');
+        click('#sheet [data-src="' + src.id + '"]'); await wait(80);
+        const blk = nowN.data.items.find(i => i.cl);
+        ok(!!blk && blk.cl.items.length === src.data.items.length && !!$('.clblock .clbody .cl-grid') && !!$('.clblock [data-cols="3"]'), 'NOW : une ligne check-liste est ajoutée, déployée, avec colonnes 1/2/3');
+        click('.clblock [data-clarrow]'); await wait(30);
+        ok(!$('.clblock .clbody'), 'NOW : la ligne se replie (flèche)');
+        w.eval('render()'); await wait(40); ok(!$('.clblock .clbody'), 'NOW : une ligne existante est repliée par défaut');
+        click('.clblock [data-del]'); await wait(30); w.eval("kill(noteById('" + impN.id + "')); save(); render()"); await wait(30); }
+      click('#tab-add'); click('#sheet [data-qa=t-infini]'); await wait(100);
+      ok(!$('#sheet form') && S().notes.some(n => n.type === 'todo' && n.data.level === 'infini') && $('#view-title .title-pill').innerText.includes('Infini'), 'Menu ＋ › Infini : ouvre directement la note infini');
+      type('#todo-new', 'Pour toujours'); submit($('#todo-form'));
+      ok(!S().notes.find(n => n.data.level === 'infini').data.items[0].due, 'Infini : tâche sans échéance');
+      await go('#/afaire');
+    { // fenêtre d'une thématique : petites cases à l'accueil, 1a = durées, icône de durée modifiable
+      await go('#/afaire');
+      ok(['Travail', 'Maison', 'Perso'].every(t => $('.theme-tile[data-theme="' + t + '"]')) && $('.theme-tile').getBoundingClientRect().height < $('.lvl-tile').getBoundingClientRect().height, 'À faire : une petite case par thématique sous les cases de durée');
+      click('.theme-tile[data-theme="Travail"]'); await wait(100);
+      ok(w.location.hash === '#/afaire/theme/Travail' && $('#view-title').innerText.includes('À FAIRE') && $('#view-title .title-pill').innerText === 'Travail', 'Thématique : « À FAIRE » suivi du nom dans la barre jaune');
+      ok($$('#top-actions button').map(b => b.innerText.replace(/\s+/g, ' ').trim()).join('|') === 'Toutes|❗ Urgent|🌱 Moyen terme|🌲 Long terme|♾️ Infini', 'Thématique : 1a = Toutes / durées (sans NOW)');
+      const rap = () => $$('.card.todo').find(c => c.querySelector('input[type=text]').value === 'Rapport');
+      ok(!!rap() && !!rap().querySelector('[data-lvlpick]') && rap().querySelector('[data-lvlpick]').innerText.trim() === '❗', 'Thématique : la tâche porte l\'icône de sa durée');
+      click(rap().querySelector('[data-lvlpick]')); await wait(40);
+      click('#sheet [data-l="moyen"]'); await wait(60);
+      const mv = S().notes.find(n => n.data.level === 'moyen').data.items.find(i => i.t === 'Rapport');
+      ok(!!mv && Math.abs(mv.due - (Date.now() + 30 * 864e5)) < 60000 && rap().querySelector('[data-lvlpick]').innerText.trim() === '🌱', 'Thématique : l\'icône change la durée (🌱 = moyen terme, échéance 1 mois)');
+      click($$('#top-actions button').find(b => b.innerText.includes('Long terme'))); await wait(40);
+      ok(!rap() && $('.theme-title').innerText === 'Long terme', 'Thématique : filtre par durée');
+      await go('#/afaire');
+      const cnt = l => +$('.lvl-tile[data-lvl="' + l + '"] .meta').innerText.split(' ')[0];
+      ok(cnt('moyen') === S().notes.find(n => n.data.level === 'moyen').data.items.filter(i => !i.done).length, 'À faire : le compteur d\'une case = les tâches de sa fenêtre');
+    }
+    }
 
     // --- Mémos : accueil et création de chaque type
     await go('#/memos');
@@ -174,22 +271,28 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const mk = async (type, name) => { await go('#/memos'); click('#tab-add'); click(`#sheet [data-qa=m-${type}]`); const f2 = $('#sheet form'); f2.elements.v.value = name; submit(f2); await wait(120); };
     await go('#/checklists'); click('#cl-new'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Valise'; submit(f2); } await wait(120);
     ok(w.location.hash.startsWith('#/note/') && $('#view-title').textContent === 'CHECK-LISTES', 'check-liste créée ; titre du bandeau « CHECK-LISTES »');
-    ok(!$('#top-actions').hidden && ['Dupliquer', 'PDF', 'Supprimer', 'Sauvegarder', 'Versions', 'Listes types', 'Définir comme type'].every(x => $('#top-actions').innerText.includes(x)), 'check-liste : Dupliquer/PDF/Supprimer + actions À faire dans le bandeau');
+    ok(!$('#top-actions').hidden && ['PDF', 'Définir comme type', 'Archive'].every(x => $('#top-actions').innerText.includes(x)) && ['Renommer', 'Dupliquer', 'Supprimer', 'Sauvegarder', 'Versions', 'Listes types'].every(x => !$('#top-actions').innerText.includes(x)), 'check-liste : le bandeau ne garde que Archive / PDF / Définir comme type');
     ok(!$('[data-na=dup]'), 'mémos : plus de boutons Dupliquer/PDF/Supprimer dans la page');
     ok($('#tabbar .on').dataset.view === 'checklists', 'onglet Check-listes actif sur une check-liste');
+    { const here = w.location.hash; click('#tabbar [data-view=journee]'); await wait(60); click('#tabbar [data-view=checklists]'); await wait(60);
+      ok(w.location.hash === here, 'onglets : en revenant sur Check-listes on retrouve la fenêtre quittée');
+      click('#tabbar [data-view=checklists]'); await wait(60); ok(w.location.hash === '#/checklists', 'onglet déjà actif : un clic ramène à la racine');
+      w.location.hash = here; await wait(60); }
     const CL = () => S().notes.find(n => n.title === 'Valise');
-    for (const t of ['Passeport', 'Chargeur', 'Maillot un très très long texte qui ne rentre sûrement pas dans une colonne étroite du tout']) { type('#c-new', t); submit($('#c-form')); }
+    for (const t of ['Passeport', 'Chargeur', 'Maillot un très très long texte qui ne rentre sûrement pas dans une colonne étroite du tout']) { click('#c-add'); await wait(20); $('#cp').value = t; click('#sheet [data-ok]'); await wait(20); }
     ok(CL().data.items.length === 3, 'check-liste : 3 lignes');
     const cs = getComputedStyle($('.cl-grid'));
-    ok(cs.gridTemplateRows.split(' ').length === 20, 'check-liste : 20 lignes par colonne minimum');
+    ok(!$('#c-new') && !$('#c-form') && !$('#c-paste') && $('#c-add').innerText.includes('Ajouter un ou plusieurs éléments') && !$('#c-add').innerText.includes('Une ligne de texte'), 'check-liste : plus de zone « ajouter un élément » ; bouton « Ajouter un ou plusieurs éléments » à sa place');
+    { const r = $$('.cl-row').map(e => Math.round(e.getBoundingClientRect().top)), l = $$('.cl-row').map(e => Math.round(e.getBoundingClientRect().left));
+      ok(r[0] === r[1] && r[2] > r[1] && l[0] < l[1] && l[2] === l[0], 'check-liste : répartition de gauche à droite (colonne 2 remplie avant la fin de la colonne 1)'); }
     ok(CL().data.cols === 2 || !CL().data.cols, 'check-liste : 2 colonnes par défaut');
     ok(getComputedStyle($('.cl-grid')).gridTemplateColumns.split(' ').length === 2, 'check-liste : rendu en 2 colonnes');
     ok($('.cl-row').offsetHeight <= 30 && parseFloat(getComputedStyle($('.cl-row')).fontSize) <= 13, 'check-liste : lignes réduites (≤ 30 px, police 13 px)');
     click('[data-cols="3"]'); await wait(30); ok(getComputedStyle($('.cl-grid')).gridTemplateColumns.split(' ').length === 3 && CL().data.cols === 3, 'bouton colonnes : 3');
     click('[data-cols="1"]'); await wait(30); ok(getComputedStyle($('.cl-grid')).gridTemplateColumns.split(' ').length === 1, 'bouton colonnes : 1');
     click('[data-cols="2"]'); await wait(30);
-    for (let i = 0; i < 25; i++) { type('#c-new', 'Ligne ' + i); submit($('#c-form')); }
-    ok(getComputedStyle($('.cl-grid')).gridTemplateRows.split(' ').length === 20 && CL().data.items.length === 28, 'check-liste : 28 lignes en 2 colonnes (20 + 8)');
+    click('#c-add'); await wait(20); $('#cp').value = Array.from({ length: 25 }, (_, i) => 'Ligne ' + i).join('\n'); click('#sheet [data-ok]'); await wait(40);
+    ok(CL().data.items.length === 28, 'check-liste : 28 éléments');
     ok($('.cl-t').scrollWidth > 0, '');
     const longRow = $$('.cl-row').find(r => r.innerText.includes('Maillot'));
     ok(longRow.querySelector('.cl-t').scrollWidth > longRow.querySelector('.cl-t').clientWidth, 'ligne longue : texte tronqué');
@@ -202,16 +305,51 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(CL().data.items[2].t === 'Maillot court' && $('#pop').hidden, 'modification d\'une ligne depuis la fenêtre');
     $$('.cl-row input[type=checkbox]')[0].click(); await wait(30);
     ok(CL().data.items[0].done === true && txt().includes('1/28'), 'case cochée en mode réduit');
-    click('#c-reset'); ok(CL().data.items.every(i => !i.done), 'check-liste : tout décocher');
+    ok(!$('#c-reset') && !$('#c-sort') && !!$('#c-all') && !$('#c-all').checked, 'check-liste : plus de ↺ ni ⇩ ; case « tout cocher » à la place');
+    click('#c-all'); await wait(30); ok(CL().data.items.every(i => i.done) && $('#c-all').checked, 'check-liste : case « tout » = tout cocher');
+    click('#c-all'); await wait(30); ok(CL().data.items.every(i => !i.done), 'check-liste : et tout décocher');
+    // bloc de texte : clic sur une ligne vide
+    { const nb = CL().data.items.length; click('[data-empty]'); await wait(40);
+      const b = CL().data.items[nb];
+      ok(CL().data.items.length === nb + 1 && b.blk === true && !!$('.cl-row.blk textarea'), 'ligne vide : crée un bloc de texte');
+      const rb = $('.cl-row.blk').getBoundingClientRect(), g = $('.cl-grid').getBoundingClientRect();
+      ok(rb.width > g.width * 0.9, 'bloc de texte : toute la largeur');
+      $('.cl-row.blk textarea').value = 'ligne 1\nligne 2'; $('.cl-row.blk textarea').dispatchEvent(new w.Event('input')); await wait(20);
+      ok(CL().data.items[nb].t === 'ligne 1\nligne 2', 'bloc de texte : plusieurs lignes (Entrée)');
+      ok($('.cl-row.blk textarea').classList.contains('collapsed') && $('.cl-row.blk textarea').offsetHeight <= 28, 'bloc de texte : une seule ligne par défaut');
+      click('.cl-row.blk [data-tg]'); await wait(30);
+      { const ta = $('.cl-row.blk textarea'); ok(!ta.classList.contains('collapsed') && ta.offsetHeight > 28 && ta.offsetHeight <= ta.scrollHeight + 2, 'flèche : déplie le bloc à la taille de son contenu'); }
+      click('.cl-row.blk [data-tg]'); await wait(30);
+      ok($('.cl-row.blk textarea').offsetHeight <= 28, 'flèche : replie le bloc (première ligne seule)');
+      click('#c-move'); await wait(30);
+      ok($('#c-move').classList.contains('blink') && $('.cl-grid').classList.contains('moving'), 'icône ✥ : actif et clignotant');
+      click('#c-move'); await wait(30); ok(!$('.cl-grid').classList.contains('moving'), 'icône ✥ : désactivable');
+      CL().data.items.splice(nb, 1); w.eval('render()'); await wait(40); }
     // Versions / listes types sur check-liste
     const act2 = l => click($$('#top-actions button').find(b => b.innerText.includes(l)));
-    act2('Sauvegarder'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Avant'; submit(f2); } await wait(30);
-    ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'version' && l.ref === CL().id), 'check-liste : version sauvegardée (liée à la liste)');
     act2('Définir comme type'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Type Voyage'; submit(f2); } await wait(30);
     ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'template'), 'check-liste : définie comme liste type');
-    act2('Dupliquer'); await wait(150);
-    ok(S().notes.some(n => n.title === 'Valise (copie)' && n.data.items.length === 28 && n.data.items[0].id !== CL().data.items[0].id), 'check-liste dupliquée depuis le bandeau');
-    await go('#/checklists'); click('#cl-tpl'); await wait(30); click('#sheet [data-id]'); await wait(120);
+    await go('#/checklists');
+    ok(!$('#cl-new').closest('.row') && $('#cl-new').offsetWidth < 140 && $('#cl-tpl').innerText.includes('Listes types') && Math.abs($('#cl-new').offsetHeight - $('#cl-new').offsetWidth) < 12, 'racine : 2 boutons carrés « Nouvelle check-liste » et « Listes types »');
+    ok(!!$('#cl-all') && $$('[data-act]').map(b => b.innerText.replace(/[^\p{L}]/gu, '')).join('|') === 'Renommer|Dupliquer|Supprimer|Sauvegarder|Versions', 'racine : sélection + Renommer / Dupliquer / Supprimer / Sauvegarder / Versions');
+    const li = () => $$('#cl-list .cl-li').find(e => e.innerText.includes('Valise') && !e.innerText.includes('copie'));
+    click(li().querySelector('[data-sel]')); await wait(20);
+    click('[data-act=save]'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Avant'; submit(f2); } await wait(30);
+    ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'version' && l.ref === CL().id), 'racine : Sauvegarder → version liée à la liste cochée');
+    click('[data-act=dup]'); await wait(80);
+    ok(S().notes.some(n => n.title === 'Valise (copie)' && n.data.items.length === 28 && n.data.items[0].id !== CL().data.items[0].id), 'racine : Dupliquer');
+    click($('#cl-all')); await wait(20); ok($$('#cl-list [data-sel]').every(c => c.checked), 'racine : tout sélectionner');
+    click($('#cl-all')); await wait(20); ok($$('#cl-list [data-sel]').every(c => !c.checked), 'racine : tout désélectionner');
+    ok(!$$('#cl-list .cl-li').some(e => e.innerText.includes('Type Voyage')), 'racine : une liste type n\'apparaît pas dans les check-listes');
+    await go('#/checklists'); click('#cl-tpl'); await wait(30); ok(['[data-ren]', '[data-dup]', '[data-del]', '[data-new]', '[data-from]'].every(x => !!$('#sheet ' + x)) && !$('#sheet .tpl-row [data-edit]') && $('#sheet [data-ren]').innerText.trim() === '✎' && $('#sheet [data-dup]').innerText.trim() === 'Dupliquer', 'Listes types : ✎ = renommer, texte « Dupliquer », poubelle ; plus de bouton Modifier'); ok(!!$('#sheet [data-new]'), 'Listes types : bouton « Nouvelle liste type »');
+    click('#sheet [data-new]'); await wait(30); { const f3 = $('#sheet form'); f3.elements.v.value = 'Type Courses'; f3.elements.t.value = 'Pain\nLait'; submit(f3); } await wait(40);
+    ok(S().lists.some(l => l.kind === 'template' && l.name === 'Type Courses' && l.items.length === 2), 'Listes types : création directe d\'une liste type');
+    click('#sheet [data-del]'); await wait(30); ok(!!$('#sheet [data-ok]') && S().lists.filter(l => l.kind === 'template' && !l.deletedAt).length >= 2, 'Listes types : suppression avec confirmation'); click('#sheet [data-no]'); await wait(30);
+    click($$('#sheet .tpl-row').find(r => r.innerText.includes('Type Voyage')).querySelector('[data-use]')); await wait(80);
+    ok(w.location.hash.startsWith('#/checklists/type/') && !!$('.cl-grid') && !!$('#c-add') && w.document.body.classList.contains('tpl-page') && !!$('.tpl-pill'), 'Listes types : un clic sur la liste ouvre directement une check-liste à remplir (fond / nom verts)');
+    click($$('#top-actions button').find(b => b.innerText.includes('Créer une check-liste'))); await wait(40);
+    ok(!!$('#sheet form') && $('#sheet form').elements.v.value === 'Type Voyage', 'Créer une check-liste depuis une liste type : le nom est d\'abord proposé (modifiable)');
+    submit($('#sheet form')); await wait(120);
     ok(S().notes.some(n => n.title === 'Type Voyage' && n.data.items.length === 28), 'nouvelle check-liste depuis une liste type');
     await go('#/checklists'); ok($$('a.lrow').length === 3, 'liste des check-listes');
 
@@ -343,6 +481,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     click('#sheet [data-load]'); await wait(80);
     ok(txt().includes('Réunion équipe') || $('.bloc input.titre')?.value === 'Réunion équipe', 'ancienne version de la journée rechargée');
     await go('#/journee'); await wait(30);
+    await go('#/journee/type'); await wait(30);
     ok(!$('#jt-sel').disabled && $$('#jt-sel option').length === 2 && $('#jt-sel').innerText.includes('Journée réunion'), 'écran de choix : menu déroulant des journées types existantes');
     ok($('#jt-more').hidden, 'date de création masquée tant qu\'aucun modèle choisi');
     $('#jt-sel').value = $('#jt-sel option:nth-child(2)').value; $('#jt-sel').dispatchEvent(new w.Event('change')); await wait(20);
@@ -395,13 +534,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       click(topBtn('Archive')); await pickKeep('never');
     }
     await go('#/note/' + S().notes.find(n => n.title === 'Valise').id);
-    ok(topBtn('Archive') && topBtn('Dupliquer') && topBtn('Sauvegarder'), 'check-liste : Archive avec les autres actions du bandeau');
-    await go('#/afaire');
-    ok($$('.todo').every(t => getComputedStyle(t).borderLeftColor === RGB.never) && topBtn('Archive : toutes'), 'À faire : bandeau rouge sur chaque tâche + action globale');
-    $('.todo').click(); await wait(40);
-    ok(S().todos.filter(t => !t.deletedAt).some(t => t.keep === 'year') && getComputedStyle($('.todo')).borderLeftColor === RGB.year, 'À faire : toucher le bandeau d\'une tâche change sa durée (rouge → orange)');
-    click(topBtn('Archive : toutes')); await pickKeep('month');
-    ok(S().todos.filter(t => !t.deletedAt).every(t => t.keep === 'month') && $$('.todo').every(t => getComputedStyle(t).borderLeftColor === RGB.month), 'À faire : « toutes » applique 1 mois (bleu) à toutes les tâches');
+    ok(topBtn('Archive') && topBtn('PDF') && !topBtn('Dupliquer') && !topBtn('Sauvegarder'), 'check-liste : Archive, PDF (plus de Dupliquer / Sauvegarder dans le bandeau)');
     await go('#/memos'); ok($$('a.lrow.kc').length > 0 && $$('a.lrow.kc').every(a => Object.values(RGB).includes(getComputedStyle(a).borderLeftColor)), 'liste des mémos : bandeaux colorés');
     ok($$('#app a.card.item.lrow').length > 0 && $$('#app a.card.item.lrow').every(a => !a.querySelector('.meta') && a.querySelectorAll('span').length === 2), 'mémos : favoris et récents n\'affichent que le titre (pas de texte à droite)');
     w.eval('libSelect = false; libSel.clear()'); await go('#/biblio'); ok($$('#lib-body a.lrow.kc').length >= 3 && $$('#lib-body a.lrow.kc').every(a => Object.values(RGB).includes(getComputedStyle(a).borderLeftColor)), 'bibliothèque : bandeaux colorés sur les lignes');
@@ -411,12 +544,29 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       click('#tabbar [data-view=biblio]'); await wait(60);
       const hs = $$('#app .h2').map(h => h.textContent.trim());
       ok(!$('#lib-q') && hs[0].includes('Favoris') && hs[1] === 'Récents' && hs[2].includes('À faire'), '2e appui sur Bibliothèque : Favoris, Récents, À faire par urgence');
-      ok($$('#app a[data-level]').map(a => a.textContent.trim()).join('|') === '🔥Urgentissime|❗Urgent|🗓️Moyen terme|🌱Long terme', '2e appui : accès à urgentissime / urgent / moyen terme / long terme');
+      ok($$('#app .lvl-tile').map(a => a.querySelector('strong').textContent.trim()).join('|') === 'Urgentissime (NOW)|Urgent|Moyen terme|Long terme|Infini' && !!$('#app .theme-tile[data-theme="Travail"]'), '2e appui : cases de durée + thématiques de À faire');
       ok($$('#app a.lrow').some(a => a.textContent.includes(fv.title || 'Mémo')) && $$('#app a[href^="#/note/"]').length >= 2, '2e appui : les favoris et les notes récentes sont listés');
       click('#tabbar [data-view=biblio]'); await wait(60);
-      ok(!!$('#lib-q') && !$('#app a[data-level]'), '3e appui : retour à la bibliothèque');
-      click('#tabbar [data-view=biblio]'); await wait(40); await go('#/memos'); await go('#/biblio');
-      ok(!!$('#lib-q'), 'bibliothèque : quitter puis revenir remet l\'affichage normal');
+      ok(!!$('#lib-q') && !$('#app .lvl-tile'), '3e appui : retour à la bibliothèque');
+      click('#tabbar [data-view=biblio]'); await wait(40);
+      ok(!!$('#tabbar [data-view=biblio] .pg') && $('#tabbar [data-view=biblio] .pg').textContent === '2/2' && $('#tabbar [data-view=biblio]').innerText.includes('Accès rapide') && !$('#view-pager'), 'onglet : « 2/2 » à côté de l\'icône (pas dans la barre jaune), nom « Accès rapide »');
+      ok(!!$('#view-title [data-vt=full]') && !!$('#view-title [data-vt=short].on') && !$('#view-title [data-vt=full].on') && $('.top-row2').hidden, 'Accès rapide : « Liste complète » et « Liste réduite » à droite du titre, réduite en surbrillance, pas de ligne 1a');
+      click('#view-title [data-vt=full]'); await wait(60);
+      ok(!!$('#full-q') && $$('#app a.lrow').length > 1 && !!$('#view-title [data-vt=full].on') && !$('#top-actions').hidden && ['Catégorie', 'Durabilité', 'Thématique', 'Tri'].every(x => $('#top-actions').innerText.includes(x)) && !!$('#top-actions .filt-reset'), 'Accès rapide : « Liste complète » → toutes les notes + recherche, ligne 1a avec filtres (catégorie, durabilité, thématique, tri) et ↺ à droite');
+      { const nb0 = $$('#full-list a.lrow').length; click($$('#top-actions button').find(b => b.innerText.includes('Catégorie'))); await wait(40);
+        ok(!$('#filter-rows').hidden && $$('#filter-rows .fchip').length > 1, 'Catégorie : les propositions se déploient sur une ligne en dessous (barre jaune)');
+        click($('#filter-rows .fchip')); await wait(40); const nb1 = $$('#full-list a.lrow').length;
+        ok(nb1 > 0 && nb1 < nb0 && $('#filter-rows .fchip.on'), 'filtre de catégorie : la liste est filtrée');
+        click($$('#filter-rows .fchip')[1]); await wait(40); ok($$('#filter-rows .fchip.on').length === 2, 'plusieurs choix possibles');
+        click($$('#top-actions button').find(b => b.innerText.includes('Durabilité'))); await wait(40); ok($$('#filter-rows .frow').length === 2, 'Durabilité : une 2e ligne se déploie en dessous');
+        click('#top-actions .filt-reset'); await wait(40); ok($$('#filter-rows .fchip.on').length === 0 && $$('#full-list a.lrow').length === nb0, '↺ : réinitialise les filtres'); }
+      { const t = $$('#full-list a.lrow').map(a => S().notes.find(n => a.href.endsWith(n.id)).updatedAt); ok(t.every((x, i) => !i || t[i - 1] >= x), 'liste complète : par ordre de modification'); }
+      type('#full-q', 'zzzintrouvable'); await wait(200); ok($$('#full-list a.lrow').length === 0, 'liste complète : recherche par mot-clé');
+      click('#view-title [data-vt=short]'); await wait(60); ok(!$('#full-q') && !!$('#app .lvl-tile'), '« Liste réduite » revient à l\'accès rapide');
+      await go('#/memos'); await go('#/biblio');
+      ok(!$('#lib-q') && !!$('#app .lvl-tile'), 'onglet : on retrouve Accès rapide là où on l\'avait laissé');
+      click('#tabbar [data-view=biblio]'); await wait(40);
+      ok(!!$('#lib-q') && $('#tabbar [data-view=biblio] .pg').textContent === '1/2', 'onglet : un clic de plus → Bibliothèque (1/2)');
       delete fv.fav; w.eval('save()');
     }
 

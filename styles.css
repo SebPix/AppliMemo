@@ -200,6 +200,21 @@ body { padding-top: var(--toph, calc(52px + env(safe-area-inset-top))); }
 
 /* --- À faire : détail déroulant --- */
 .card.todo { display: block; }
+.lvl-tile { border: 0; font: inherit; color: inherit; text-align: left; min-height: 0; cursor: pointer; background: var(--card); }
+.todo-note-row.latest { background: #f3d76a; }   /* la dernière note : fond jaune marqué */
+.lvl-pick { margin-bottom: 8px; }
+.lvl-pick .chip { min-height: 30px; padding: 4px 10px; }
+.lvl-pick .chip.on { background: #f3d76a; font-weight: 600; }
+/* tâches (dans une note) : cartes compactes, ~40 % plus petites, moins d'espace entre elles */
+.card.todo { padding: 3px 8px; margin-bottom: 5px; border-radius: 10px; }
+.card.todo .trow { gap: 6px; }
+.card.todo input[type=checkbox] { width: 18px; height: 18px; }
+.card.todo input[type=text] { padding: 2px 4px; font-size: 14.5px; }
+.card.todo button { min-height: 26px; padding: 2px 8px; font-size: 13px; }
+.card.todo .prio { min-width: 30px; }
+.card.todo .arrow { min-width: 30px; }
+.card.todo .todo-note, .card.todo .rte.todo-note { margin-top: 4px; min-height: 60px; }
+.card.todo .todo-peek { padding-left: 26px; font-size: 11.5px; }
 .trow { display: flex; gap: 8px; align-items: center; }
 .arrow { flex: none; min-width: 38px; padding: 4px; }
 .arrow.has { color: var(--gold); font-weight: 700; }
@@ -365,3 +380,233 @@ body[data-sub] .top-row h1 { top: calc(50% - 7px); }
   text-align: left; font-size: 15px; border-bottom: 1px solid var(--line); }
 .qa-row span { width: 1.4em; text-align: center; flex: none; }
 .qa-row:active { background: rgba(127,127,127,.15); }
+
+/* --- Bibliothèque : « 1/2 » discret en haut à droite, étoile arc-en-ciel de l'onglet Accès rapide --- */
+.tabbar button .ic { position: relative; display: inline-block; }
+.tabbar button .pg { position: absolute; top: -4px; left: 100%; margin-left: 1px; font-size: 8.5px; line-height: 1; opacity: .65; font-weight: 500; white-space: nowrap; }
+.tabbar button .rb-star { font-weight: 400; background: linear-gradient(90deg, #e74c3c, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+
+.lvl-tiles { grid-template-columns: repeat(6, 1fr); }   /* 3 cases sur la 1re ligne, 2 sur la 2e */
+.lvl-tiles .lvl-tile { grid-column: span 2; position: relative; }
+.lvl-tiles .lvl-tile:nth-child(n+4) { grid-column: span 3; }
+.lvl-tile .keep-hint { position: absolute; top: 8px; right: 9px; font-size: 10px; color: var(--muted); opacity: .8; }
+
+/* --- À faire : fenêtre d'un niveau --- */
+.theme-title { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 2px 8px; }
+.top-actions button.on { background: #fff !important; color: var(--gold) !important; font-weight: 700; }
+.top-actions button { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.card.todo .info { min-width: 30px; padding: 2px 6px; background: #eee; color: var(--muted); font-size: 15px; }
+
+/* --- À faire : pastille du titre, petites cases de thématiques, icône de durée des tâches --- */
+.title-pill { background: #fff; color: var(--ink); border-radius: 12px; padding: 2px 10px; margin-left: 8px; font-size: 13px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+.theme-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+.theme-tiles .tile { padding: 8px 8px; border: 0; font: inherit; color: inherit; text-align: left; min-height: 0; background: var(--card); cursor: pointer; font-size: 13px; }
+.theme-tiles .tile .meta { font-size: 11px; }
+.card.todo .lvl-ic { min-width: 30px; padding: 0 4px; background: transparent; font-size: 18px; }
+
+/* --- Signe vide « ∅ » (pas de thématique) : gris bleu --- */
+.notheme { color: #6f8aa6; }
+.top-actions button.notheme { color: #5f7d9c !important; background: rgba(255,255,255,.85) !important; }
+.top-actions button.notheme.on { background: #fff !important; font-weight: 700; }
+.theme-tiles .no-theme strong, .theme-ic.notheme { color: #6f8aa6; }
+.card.todo .theme-ic { min-width: 26px; padding: 0 4px; background: rgba(111,138,166,.15); font-weight: 700; font-size: 13px; border-radius: 13px; }
+
+.tabbar button > * { pointer-events: none; }   /* le clic est toujours reçu par le bouton, même sur l'icône */
+
+.more-row { display: block; width: 100%; margin: 2px 0 8px; padding: 8px; border: 0; background: transparent; color: var(--gold); font: inherit; font-size: 13px; text-align: center; cursor: pointer; }
+.lvl-tiles { margin-bottom: 4px; }
+.theme-block { margin-left: 14px; padding-left: 10px; border-left: 2px solid var(--line); }   /* retrait : les thématiques se distinguent des niveaux */
+
+/* cases de durée compactes : icône + nom sur une ligne, le compteur dessous ; 2 lignes de cases au total */
+.lvl-tiles { gap: 6px; margin-bottom: 4px; }
+.lvl-tiles .lvl-tile { padding: 6px 8px; gap: 0; min-height: 0; height: auto; align-self: start; flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 5px; }
+.lvl-tiles .lvl-tile .ti { font-size: 16px; line-height: 1.2; }
+.lvl-tiles .lvl-tile strong { font-size: 12.5px; line-height: 1.2; }
+.lvl-tiles .lvl-tile .meta { flex-basis: 100%; font-size: 11px; line-height: 1.2; }
+.lvl-tiles .lvl-tile .keep-hint { top: 4px; right: 6px; font-size: 9.5px; }
+#app { padding-bottom: 28px; }
+
+.choose3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.choose3 .bigcard { flex-direction: column; justify-content: center; gap: 4px; padding: 12px 6px; min-height: 84px; text-align: center; font-size: 13px; border: 0; }
+.choose3 .bigcard .bi { font-size: 26px; }
+.day-sort { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+.day-sort .chip { min-height: 30px; padding: 4px 10px; border: 0; }
+
+/* À faire : 5 cases de durée + « ＋ » = 2 lignes de 3 cases identiques, deux fois plus hautes */
+.lvl-tiles.lvl-tall { gap: 8px; }
+.lvl-tiles.lvl-tall .lvl-tile, .lvl-tiles.lvl-tall .lvl-tile:nth-child(n+4) { grid-column: span 2; min-height: 110px; padding: 12px 10px; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 3px; align-self: stretch; }
+.lvl-tiles.lvl-tall .lvl-tile .ti { font-size: 28px; line-height: 1.2; }
+.lvl-tiles.lvl-tall .lvl-tile strong { font-size: 14px; }
+.lvl-tiles.lvl-tall .lvl-tile .meta { flex-basis: auto; font-size: 12px; }
+.lvl-tiles.lvl-tall .lvl-tile .keep-hint { top: 8px; right: 9px; font-size: 10px; }
+.lvl-add { align-items: center !important; text-align: center; color: var(--gold); }
+.lvl-add .ti { font-size: 34px !important; font-weight: 300; }
+.tnav { background: rgba(255,255,255,.25); color: #fff; border: 0; border-radius: 10px; min-height: 0; padding: 1px 8px; margin: 0 6px; font-size: 13px; letter-spacing: 0; vertical-align: middle; }
+
+.root-q { margin: 12px 0 8px; }
+[hidden] { display: none !important; }
+
+/* barres de recherche : texte violet foncé (placeholder compris) sur fond violet pâle */
+input[type=search] { color: #4b1f73 !important; background: #efe6f8 !important; border-color: #cdb6e6 !important; }
+input[type=search]::placeholder { color: #4b1f73; opacity: .75; }
+input[type=search]::-webkit-input-placeholder { color: #4b1f73; opacity: .75; }
+input[type=search]:focus { outline: 2px solid #9b6fcf; outline-offset: 0; }
+
+/* flèches de durée : emplacement fixe dans la barre jaune, loin du titre central */
+.top-row .tnav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; background: rgba(255,255,255,.25); color: #fff; border: 0; border-radius: 10px; min-height: 0; padding: 3px 10px; font-size: 14px; }
+.top-row .tnav-l { left: 50px; } .top-row .tnav-r { right: 54px; }
+.top-row.has-nav h1 { max-width: calc(100% - 250px); }
+.all-row { display: flex; justify-content: center; margin: 4px 0 10px; }
+.all-btn { min-width: 60%; padding: 12px 18px; border-radius: 12px; background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: 600; }
+
+/* flèches rapprochées du titre : plus petites, titre un peu plus compact pour ne pas les toucher */
+.top-row .tnav { padding: 3px 8px; font-size: 13px; }
+.top-row .tnav-l { left: 56px; } .top-row .tnav-r { right: 60px; }
+.top-row.has-nav h1 { max-width: calc(100% - 176px); font-size: 15px; }
+.top-row.has-nav h1 .title-pill { font-size: 12px; padding: 2px 8px; margin-left: 6px; }
+
+/* « Tout à faire » : filtres sous la bande jaune, défilables de gauche à droite */
+.chiprow { display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; margin: 0 0 8px; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.chiprow::-webkit-scrollbar { display: none; }
+.chiprow .chip { flex: none; min-height: 32px; padding: 4px 12px; border: 0; }
+.chiprow .notheme { color: #6f8aa6; }
+
+/* check-listes : remplissage de gauche à droite, blocs de texte pleine ligne, mode déplacer */
+.cl-grid { grid-auto-flow: row; grid-template-rows: none; grid-auto-rows: minmax(28px, auto); grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); background-image: none; align-items: stretch; }
+.cl-row, .cl-empty { border-bottom: 1px solid var(--line); min-height: 28px; box-sizing: border-box; }
+.cl-row { height: auto; }
+.cl-empty { cursor: text; grid-column: 1 / -1; }
+.cl-empty:hover { background: rgba(0,0,0,.03); }
+.cl-row.blk { grid-column: 1 / -1; align-items: flex-start; padding: 2px 0; }
+.blk-tg { background: transparent; min-height: 24px; padding: 0 6px; font-size: 14px; flex: none; }
+.blk-t { flex: 1; min-width: 0; border: 0; background: transparent; padding: 3px 4px; font-size: 13px; line-height: 1.35; resize: none; overflow: hidden; border-radius: 6px; }
+.blk-t.collapsed { height: 24px; white-space: pre; text-overflow: ellipsis; }
+.blk-t:focus { background: rgba(0,0,0,.04); outline: none; }
+.blk-del { flex: none; }
+.cl-all { display: inline-flex; align-items: center; padding: 0 6px; }
+.cl-all input { width: 20px; height: 20px; padding: 0; accent-color: var(--green); }
+#c-move.on { background: var(--gold); color: #fff; }
+.blink { animation: clblink 1s ease-in-out infinite; }
+@keyframes clblink { 50% { opacity: .35; } }
+.cl-grid.moving .cl-row { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; background: rgba(0,0,0,.03); }
+.cl-grid.moving .cl-row * { pointer-events: none; }
+.cl-row.lifting { position: relative; z-index: 5; opacity: .85; box-shadow: 0 4px 12px rgba(0,0,0,.25); background: var(--card); }
+.drop-before { box-shadow: inset 3px 0 0 var(--gold); } .drop-after { box-shadow: inset -3px 0 0 var(--gold); }
+.cl-row.blk.drop-before { box-shadow: inset 0 3px 0 var(--gold); } .cl-row.blk.drop-after { box-shadow: inset 0 -3px 0 var(--gold); }
+
+.blk-t { min-height: 0; }   /* écrase le min-height des textarea : un bloc déplié a la taille de son contenu, pas plus */
+.blk-t.collapsed { height: 24px; overflow: hidden; }
+
+/* check-liste : bouton « Ajouter un ou plusieurs éléments » */
+.add-many { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; margin-bottom: 8px; padding: 10px 12px; background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.add-many .plus-box { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none; border: 1px solid #000; border-radius: 6px; background: #fff; color: #2ecc71; font-size: 22px; font-weight: 700; line-height: 1; }
+.add-many .meta { font-size: 12px; }
+
+/* check-liste : nom dans la barre jaune, ☑ et nom à la couleur de conservation, étoile favori à droite */
+.cl-pill { margin-left: 0; font-size: 14px; }
+.cl-pill .cl-pic { color: var(--kc); font-size: 17px; font-weight: 700; }
+.cl-pill .cl-pname { color: color-mix(in srgb, var(--kc) 82%, #000); }
+.title-fav { background: transparent; color: #fff; border: 0; min-height: 0; padding: 0 4px; margin-left: 6px; font-size: 20px; line-height: 1; vertical-align: middle; }
+
+.cl-tabic { font-size: 18px; margin-right: 6px; vertical-align: middle; letter-spacing: 0; }   /* même icône que l'onglet Check-listes, dans le jaune, hors de l'encadré */
+.title-fav svg { display: block; }
+
+.cl-tabic { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .06em; margin-right: 8px; }   /* « CHECK-LISTES » en blanc, à gauche de l'encadré du nom */
+
+/* Check-listes (racine) : 2 boutons carrés, sélection, actions */
+.cl-top { display: flex; gap: 10px; margin-bottom: 4px; }
+.cl-top .sq { width: 104px; height: 104px; min-height: 0; padding: 8px; flex-direction: column; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center; font-size: 12.5px; line-height: 1.2; background: var(--card); border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.cl-top .sq-ic { font-size: 30px; line-height: 1; }
+.cl-top #cl-new .sq-ic { color: #2ecc71; font-weight: 700; }
+.cl-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.cl-sel .cl-all { display: inline-flex; align-items: center; gap: 6px; padding: 0 2px; }
+.cl-sel .cl-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.cl-sel .mini { min-height: 30px; padding: 4px 9px; }
+.cl-sel .mini:disabled { opacity: .4; }
+.cl-li { display: flex; align-items: center; gap: 8px; }
+.cl-li[hidden] { display: none !important; }
+.cl-li > input[type=checkbox] { width: 20px; height: 20px; padding: 0; flex: none; accent-color: var(--green); }
+.cl-li > a { margin-bottom: 8px; }
+.tpl-row { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.tpl-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tpl-acts .mini { min-height: 30px; padding: 4px 9px; }
+
+/* Listes types : boutons sur une ligne, puis une ligne par liste type avec ses boutons en fin de ligne */
+.tpl-top { gap: 8px; margin-bottom: 10px; }
+.tpl-list { display: flex; flex-direction: column; }
+.tpl-row { display: flex; align-items: center; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.tpl-row .tpl-use { flex: 1; min-width: 0; text-align: left; background: transparent; padding: 6px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-row .mini { flex: none; min-height: 32px; min-width: 34px; padding: 4px 8px; }
+
+/* check-listes types : nom en vert sur fond vert clair, page en vert clair discret */
+body.tpl-page { background: #eaf5ec !important; }
+.cl-pill.tpl-pill { background: #d6f0da; }
+.cl-pill.tpl-pill .cl-pname { color: #1e8a3a; font-weight: 700; }
+
+/* NOW : check-liste importée = ligne repliable contenant une check-liste */
+.card.clblock .clbody { margin-top: 8px; }
+.card.clblock .cl-mark { flex: none; font-size: 15px; }
+.card.clblock .cl-count { flex: none; }
+
+/* Accès rapide : « Liste complète » / « Liste réduite » côte à côte à droite du titre, le mode actif en surbrillance */
+.vt-tgl { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: middle; letter-spacing: 0; }
+.vt-tgl button { min-height: 0; padding: 3px 8px; font-size: 11px; font-weight: 600; border: 0; border-radius: 10px; background: rgba(255,255,255,.25); color: #fff; white-space: nowrap; }
+.vt-tgl button.on { background: #fff; color: var(--gold); }
+.top-row.has-tgl h1 { max-width: calc(100% - 90px); }
+
+/* Liste complète : lignes de propositions dans la barre jaune */
+.filter-rows { padding: 0 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+.filter-rows[hidden] { display: none !important; }
+.frow { display: flex; align-items: center; gap: 8px; }
+.frow .flab { flex: none; font-size: 11px; font-weight: 700; color: #fff; opacity: .9; min-width: 64px; }
+.fchips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.fchips::-webkit-scrollbar { display: none; }
+.fchip { flex: none; min-height: 28px; padding: 3px 11px; border: 0; border-radius: 14px; background: rgba(255,255,255,.25); color: #fff; font-size: 12px; white-space: nowrap; }
+.fchip.on { background: #fff; color: var(--gold); font-weight: 700; }
+.top-actions button.filt-reset { margin-left: auto; position: sticky; right: 0; flex: none; font-size: 18px; }
+.top-actions button.filt-reset.off { opacity: .45; }
+
+/* page MENU d'accueil */
+body.on-menu .tabbar { display: none; }
+body.on-menu { padding-bottom: 16px; }
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.menu-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 120px; padding: 14px 8px; border-radius: 18px; background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); text-align: center; font-size: 15px; line-height: 1.2; }
+.menu-btn .mi { font-size: 38px; line-height: 1; }
+.menu-btn.menu-create { grid-column: 1 / -1; min-height: 90px; flex-direction: row; gap: 14px; background: var(--gold); color: #fff; }
+.menu-btn.menu-create .mi { font-size: 40px; font-weight: 300; }
+.top-row h1 { font-size: 15px; }
+
+/* MENU : boutons carrés, ensemble centré verticalement ; « ＋ Créer » petit, en bas à gauche */
+.menu-wrap { min-height: calc(100vh - var(--toph, 60px) - 40px); display: flex; align-items: center; justify-content: center; }
+.menu-grid { width: 100%; max-width: 440px; grid-template-columns: 1fr 1fr; gap: 12px; display: grid; }
+.menu-btn { aspect-ratio: 1 / 1; min-height: 0; }
+.menu-create { position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: 76px; height: 76px; min-height: 0; padding: 6px; border-radius: 16px; background: var(--gold); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 5; }
+.menu-create .mi { font-size: 28px; line-height: 1; font-weight: 300; }
+body:not(.on-menu) .menu-create { display: none; }
+
+/* MENU v3 : 3 × 2 boutons carrés (−30 %), puis Préférences et ＋ Créer (petits) en dessous */
+.menu-grid { grid-template-columns: repeat(3, minmax(0, 150px)); justify-content: center; max-width: none; width: auto; gap: 12px; }
+.menu-btn { font-size: 13px; padding: 8px 4px; gap: 6px; }
+.menu-btn .mi { font-size: 30px; }
+.menu-all { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+.menu-low { display: flex; gap: 12px; justify-content: center; }
+.menu-small { width: 76px; height: 76px; min-height: 0; padding: 6px; border-radius: 16px; background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.12); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 600; }
+.menu-small .mi { font-size: 26px; line-height: 1; }
+.menu-small.menu-create { position: static; background: var(--gold); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.menu-small.menu-create .mi { font-weight: 300; }
+body:not(.on-menu) .menu-create { display: none; }
+
+/* MENU : 3 lignes × 2 colonnes */
+.menu-grid { grid-template-columns: repeat(2, minmax(0, 150px)); }
+
+/* étoile arc-en-ciel d'Accès rapide (aussi dans le MENU) */
+.rb-star { font-weight: 400; background: linear-gradient(90deg, #e74c3c, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+
+/* MENU : ensemble agrandi de 20 %, contenu des 6 boutons plus volumineux */
+.menu-grid { grid-template-columns: repeat(2, minmax(0, 180px)); gap: 14px; }
+.menu-btn { font-size: 16px; padding: 8px 4px; gap: 8px; border-radius: 22px; }
+.menu-btn .mi { font-size: 50px; }
+.menu-all { gap: 24px; }
+.menu-low { gap: 14px; }
+.menu-small { width: 91px; height: 91px; border-radius: 19px; font-size: 13px; }
+.menu-small .mi { font-size: 31px; }

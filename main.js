@@ -1,7 +1,7 @@
 /* Démarrage. */
 'use strict';
 applyTheme();
-if (!location.hash) history.replaceState(null, '', '#/journee');
+if (!location.hash) history.replaceState(null, '', '#/menu');
 const purged = purgeExpired();
 render();
 flush();

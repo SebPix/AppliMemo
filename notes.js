@@ -4,7 +4,7 @@
 
 /* ---------- Données ---------- */
 function defaultData(type) {
-  return type === 'divers' ? { text: '' } : type === 'password' ? { enc: null, kid: '' } : { items: [] };
+  return type === 'divers' || type === 'ecritures' ? { text: '' } : type === 'password' ? { enc: null, kid: '' } : type === 'todo' ? { items: [], level: '' } : { items: [] };
 }
 function newNote(type, title) {
   const n = touch({ id: uid(), type, title, fav: false, data: defaultData(type) });
@@ -14,15 +14,17 @@ function newNote(type, title) {
 /** Texte brut d'une note (recherche, hashtags, PDF). Le coffre n'est jamais indexé. */
 function noteText(n) {
   const d = n.data;
-  if (n.type === 'divers') return d.text;
+  if (n.type === 'divers' || n.type === 'ecritures') return d.text;
   if (n.type === 'password') return '';
   if (n.type === 'voice') return d.items.map(i => [i.titre, i.note].filter(Boolean).join(' ')).join('\n');
+  if (n.type === 'todo') return d.items.map(i => [i.t, i.note].filter(Boolean).join(' ')).join('\n');
   return d.items.map(it => Object.entries(it).filter(([k, v]) => k !== 'id' && k !== 'done' && v !== null && v !== '').map(([, v]) => v).join(' ')).join('\n');
 }
 function noteMeta(n) {
   const d = n.data;
-  if (n.type === 'checklist') return `${d.items.filter(i => i.done).length}/${d.items.length}`;
-  if (n.type === 'divers') return d.text.replace(/\s+/g, ' ').slice(0, 40);
+  if (n.type === 'checklist') { const its = d.items.filter(i => !i.blk); return `${its.filter(i => i.done).length}/${its.length}`; }
+  if (n.type === 'todo') return `${d.items.filter(i => !i.done).length} à faire`;
+  if (n.type === 'divers' || n.type === 'ecritures') return '';   // le nom seulement, pas le début du texte
   if (n.type === 'password') return '🔒';
   if (n.type === 'voice') return `${d.items.length} enregistrement${d.items.length > 1 ? 's' : ''}`;
   return `${d.items.length} élément${d.items.length > 1 ? 's' : ''}`;
@@ -41,16 +43,28 @@ function upcomingBirthdays(n) {
 }
 
 /* ---------- Accueil Mémos ---------- */
+let mmQ = '', clQ = '';
 VIEWS.memos = app => {
-  const notes = liveNotes().filter(n => n.type !== 'checklist');
+  const notes = liveNotes().filter(n => n.type !== 'checklist' && n.type !== 'todo');
   const favs = notes.filter(n => n.fav), recents = [...notes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5);
   const list = arr => arr.map(n => `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${TYPE_META[n.type].icon}</span>
     <span class="grow">${esc(noteTitle(n))}</span></a>`).join('');   // favoris et récents : le titre seulement
   app.innerHTML = `
     <div class="tiles">${MEMO_TYPES.map(t => `<a class="tile" href="#/memos/type/${t}"><span class="ti">${TYPE_META[t].icon}</span>
       <strong>${TYPE_META[t].label}</strong><span class="meta">${notes.filter(n => n.type === t).length}</span></a>`).join('')}</div>
-    ${favs.length ? `<div class="h2">★ Favoris</div>${list(favs)}` : ''}
-    ${recents.length ? `<div class="h2">Récents</div>${list(recents)}` : '<p class="empty">Aucun mémo pour l’instant.<br>Choisis un type ci-dessus pour commencer.</p>'}`;
+    ${searchHTML('mm-q', 'Rechercher un mémo…', mmQ)}<div id="mm-res" hidden></div>
+    <div id="mm-body">${favs.length ? `<div class="h2">★ Favoris</div>${list(favs)}` : ''}
+    ${recents.length ? `<div class="h2">Récents</div>${list(recents)}` : '<p class="empty">Aucun mémo pour l’instant.<br>Choisis un type ci-dessus pour commencer.</p>'}</div>`;
+  const mmSearch = () => {
+    const words = norm(mmQ).split(/\s+/).filter(Boolean), res = $('#mm-res', app);
+    res.hidden = !words.length; $('#mm-body', app).hidden = !!words.length;
+    if (!words.length) return;
+    const hits = notes.filter(n => words.every(w => norm(noteTitle(n) + ' ' + noteText(n)).includes(w))).sort((x, y) => y.updatedAt - x.updatedAt);
+    res.innerHTML = hits.length ? hits.map(n => `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : TYPE_META[n.type].icon}</span>
+      <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(TYPE_META[n.type].label)}</span></a>`).join('') : '<p class="empty small">Aucun mémo ne correspond.</p>';
+  };
+  $('#mm-q', app).oninput = debounce(e => { mmQ = e.target.value; mmSearch(); }, 120);
+  mmSearch();
 };
 function createNoteFlow(type) {
   const m = TYPE_META[type], divers = type === 'divers';
@@ -67,6 +81,7 @@ function createNoteFlow(type) {
 VIEWS.type = (app, r) => {
   const t = r.type;
   if (t === 'checklist') return nav('#/checklists');
+  if (t === 'todo') return nav('#/afaire');
   if (!TYPE_META[t]) return nav('#/memos');
   setTitle(TYPE_META[t].label.toUpperCase());
   const notes = liveNotes().filter(n => n.type === t).sort((a, b) => (b.fav - a.fav) || noteTitle(a).localeCompare(noteTitle(b), 'fr'));
@@ -77,16 +92,113 @@ VIEWS.type = (app, r) => {
 };
 
 /* ---------- Check-listes (onglet à part) ---------- */
+const clSel = new Set();   // check-listes cochées (racine de l'onglet)
+function cloneChecklist(src) {
+  const c = JSON.parse(JSON.stringify(src));
+  Object.assign(c, { id: uid(), title: noteTitle(src) + ' (copie)', fav: false, updatedAt: now() }); delete c.deletedAt;
+  c.data.items.forEach((it, i) => { it.id = uid() + i; });
+  state.notes.push(c); return c;
+}
 VIEWS.checklists = app => {
   const lists = liveNotes().filter(n => n.type === 'checklist').sort((a, b) => (b.fav - a.fav) || noteTitle(a).localeCompare(noteTitle(b), 'fr'));
-  app.innerHTML = `<div class="row" style="margin-bottom:12px"><button class="btn-gold grow" id="cl-new">＋ Nouvelle check-liste</button>
-      <button id="cl-tpl">📑 Depuis une liste type</button></div>
-    ${lists.length ? lists.map(n => `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : '☑️'}</span>
-      <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(noteMeta(n))}</span></a>`).join('')
-      : '<p class="empty">Aucune check-liste.<br>Crée-en une, ou pars d’une liste type.</p>'}`;
+  [...clSel].forEach(id => { if (!lists.some(l => l.id === id)) clSel.delete(id); });
+  app.innerHTML = `<div class="cl-top"><button type="button" class="sq" id="cl-new"><span class="sq-ic">＋</span><span>Nouvelle check-liste</span></button>
+      <button type="button" class="sq" id="cl-tpl"><span class="sq-ic">📑</span><span>Listes types</span></button></div>
+    ${searchHTML('cl-q', 'Rechercher une check-liste…', clQ)}
+    ${lists.length ? `<div class="cl-sel"><label class="cl-all"><input type="checkbox" id="cl-all" aria-label="Tout sélectionner"> <span class="meta" id="cl-cnt"></span></label>
+      <div class="cl-acts"><button class="mini" data-act="rename">✎ Renommer</button><button class="mini" data-act="dup">⧉ Dupliquer</button><button class="mini danger" data-act="del">🗑 Supprimer</button>
+        <button class="mini" data-act="save">💾 Sauvegarder</button><button class="mini" data-act="ver">🕘 Versions</button></div></div>` : ''}
+    <div id="cl-list">${lists.length ? lists.map(n => `<div class="cl-li" data-id="${n.id}"><input type="checkbox" data-sel aria-label="Sélectionner" ${clSel.has(n.id) ? 'checked' : ''}>
+      <a class="card item lrow grow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : '☑️'}</span>
+      <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(noteMeta(n))}</span></a></div>`).join('')
+      : '<p class="empty">Aucune check-liste.<br>Crée-en une, ou pars d’une liste type.</p>'}</div>`;
+  const byId = id => lists.find(l => l.id === id);
+  const visible = () => {
+    const words = norm(clQ).split(/\s+/).filter(Boolean);
+    return lists.filter(l => words.every(w => norm(noteTitle(l) + ' ' + noteText(l)).includes(w)));
+  };
+  const sync = () => {
+    const vis = visible(), ids = new Set(vis.map(l => l.id));
+    $$('#cl-list .cl-li', app).forEach(el => { el.hidden = !ids.has(el.dataset.id); $('[data-sel]', el).checked = clSel.has(el.dataset.id); });
+    const sel = [...clSel].filter(id => ids.has(id)), all = $('#cl-all', app);
+    if (!all) return;
+    all.checked = vis.length > 0 && sel.length === vis.length;
+    $('#cl-cnt', app).textContent = sel.length ? `${sel.length} sélectionnée${sel.length > 1 ? 's' : ''}` : 'Tout sélectionner';
+    $$('[data-act]', app).forEach(b => { b.disabled = ['dup', 'del'].includes(b.dataset.act) ? !sel.length : sel.length !== 1; });
+  };
+  $('#cl-q', app).oninput = debounce(e => { clQ = e.target.value; sync(); }, 120);
+  $$('#cl-list [data-sel]', app).forEach(cb => (cb.onchange = () => { const id = cb.closest('.cl-li').dataset.id; cb.checked ? clSel.add(id) : clSel.delete(id); sync(); }));
+  const all = $('#cl-all', app);
+  if (all) all.onchange = () => { visible().forEach(l => (all.checked ? clSel.add(l.id) : clSel.delete(l.id))); sync(); };
+  const picked = () => visible().filter(l => clSel.has(l.id));
+  $$('[data-act]', app).forEach(b => (b.onclick = () => {
+    const ps = picked(), one = ps[0];
+    if (b.dataset.act === 'rename') promptSheet('Renommer la check-liste', { label: 'Nom', value: one.title, okLabel: 'Renommer' }, v => { one.title = v.trim() || TYPE_META.checklist.def; touch(one); save(); render(); });
+    else if (b.dataset.act === 'dup') { ps.forEach(cloneChecklist); save(); clSel.clear(); toast(ps.length > 1 ? `${ps.length} check-listes dupliquées.` : 'Check-liste dupliquée.'); render(); }
+    else if (b.dataset.act === 'del') confirmSheet(ps.length > 1 ? `Supprimer ces ${ps.length} check-listes ?` : `Supprimer « ${noteTitle(one)} » ?`, 'Supprimer',
+      () => { withUndo('Supprimé', () => ps.forEach(kill)); clSel.clear(); render(); });
+    else if (b.dataset.act === 'save') saveVersion(checkCtx(one));
+    else if (b.dataset.act === 'ver') versionsSheet(checkCtx(one));
+  }));
+  sync();
   $('#cl-new').onclick = () => createNoteFlow('checklist');
-  $('#cl-tpl').onclick = checklistFromTemplate;
+  $('#cl-tpl').onclick = checklistTemplates;
+  if (tplReturn) { tplReturn = false; checklistTemplates(); }
 };
+/** Listes types : visibles uniquement ici (jamais dans la liste des check-listes). Chacune : créer une check-liste, modifier, renommer, dupliquer, supprimer. */
+function checklistTemplates() {
+  const draw = () => {
+    const ts = listsFor({ scope: 'checklist' }, 'template');
+    openSheet(`<h3>Listes types</h3>
+      <div class="row tpl-top"><button class="btn-gold grow" data-new>＋ Nouvelle liste type</button><button class="grow" data-from>Depuis une liste</button></div>
+      ${ts.length ? `<div class="tpl-list">${ts.map(t => `<div class="tpl-row" data-id="${t.id}">
+        <button class="tpl-use" data-use title="Modifier cette liste type"><strong>${esc(t.name)}</strong> <span class="meta">${countLabel(t.items.length, 'élément')}</span></button>
+        <button class="mini" data-ren aria-label="Renommer" title="Renommer">✎</button>
+        <button class="mini" data-dup>Dupliquer</button><button class="mini danger" data-del aria-label="Supprimer" title="Supprimer">🗑</button></div>`).join('')}</div>`
+      : '<p class="empty small">Aucune liste type. Crée-en une, ou pars d’une check-liste existante.</p>'}
+      <button class="grow" data-close style="width:100%;margin-top:10px">Fermer</button>`, c => {
+      $('[data-close]', c).onclick = closeSheet;
+      // « Depuis une liste » : choisir une check-liste de la racine ; sa copie devient une liste type (l'originale reste dans les check-listes)
+      $('[data-from]', c).onclick = () => {
+        const ls = liveNotes().filter(x => x.type === 'checklist').sort((x, y) => noteTitle(x).localeCompare(noteTitle(y), 'fr'));
+        openSheet(`<h3>Dupliquer depuis une check-liste</h3>${ls.length ? `<div class="btn-list">${ls.map(x => `<button data-pick="${x.id}" style="text-align:left"><strong>${esc(noteTitle(x))}</strong> <span class="meta">${countLabel(x.items ? x.items.length : x.data.items.filter(i => !i.blk).length, 'élément')}</span></button>`).join('')}</div>`
+          : '<p class="empty small">Aucune check-liste à dupliquer.</p>'}<button class="grow" data-no style="width:100%;margin-top:10px">Annuler</button>`, c3 => {
+          $('[data-no]', c3).onclick = draw;
+          $$('[data-pick]', c3).forEach(b2 => (b2.onclick = () => {
+            const src = noteById(b2.dataset.pick);
+            state.lists.push(touch({ id: uid(), scope: 'checklist', kind: 'template', ref: '', keep: 'never', name: noteTitle(src), sub: '',
+              items: checkCtx(src).items().map(i => ({ ...i, done: false })) }));
+            save(); toast('Liste type créée ⭐'); draw();
+          }));
+        });
+      };
+      $('[data-new]', c).onclick = () => openSheet(`<h3>Nouvelle liste type</h3><form class="form"><label>Nom<input name="v" placeholder="Liste type" autocomplete="off"></label>
+        <label>Éléments <span class="meta">(une ligne de texte = un élément de la liste)</span><textarea name="t" rows="10"></textarea></label>
+        <div class="row" style="margin-top:10px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Créer</button></div></form>`, c2 => {
+        $('[data-no]', c2).onclick = draw;
+        $('form', c2).onsubmit = e => {
+          e.preventDefault();
+          const f = e.target, name = f.elements.v.value.trim() || 'Liste type', lines = f.elements.t.value.split('\n').map(l => l.trim()).filter(Boolean);
+          state.lists.push(touch({ id: uid(), scope: 'checklist', kind: 'template', ref: '', keep: 'never', name, sub: '', items: lines.map(x => ({ t: x, done: false, prio: 0, note: '' })) }));
+          save(); toast('Liste type créée ⭐'); draw();
+        };
+        $('input', c2).focus();
+      });
+      $$('.tpl-row', c).forEach(el => {
+        const t = state.lists.find(x => x.id === el.dataset.id);
+        $('[data-ren]', el).onclick = () => promptSheet('Renommer la liste type', { label: 'Nom', value: t.name, okLabel: 'Renommer' }, v => { t.name = v.trim() || t.name; touch(t); save(); draw(); });
+        $('[data-dup]', el).onclick = () => { state.lists.push(touch({ ...JSON.parse(JSON.stringify(t)), id: uid(), name: t.name + ' (copie)' })); save(); toast('Liste type dupliquée.'); draw(); };
+        $('[data-del]', el).onclick = () => openSheet(`<h3>Supprimer la liste type « ${esc(t.name)} » ?</h3><div class="row"><button class="grow" data-no>Annuler</button><button class="grow btn-red" data-ok>Supprimer</button></div>`, c3 => {
+          $('[data-no]', c3).onclick = draw;
+          $('[data-ok]', c3).onclick = () => { kill(t); save(); draw(); toast('Liste type supprimée.'); };
+        });
+        // clic sur la liste : on arrive directement dans la check-liste type, à remplir comme une check-liste ordinaire
+        $('[data-use]', el).onclick = () => { closeSheet(); nav('#/checklists/type/' + t.id); };
+      });
+    });
+  };
+  draw();
+}
 /** Nouvelle check-liste à partir d'une liste type. */
 function checklistFromTemplate() {
   const ts = listsFor({ scope: 'checklist' }, 'template');
@@ -103,6 +215,7 @@ function checklistFromTemplate() {
 VIEWS.note = (app, r) => {
   const n = noteById(r.id);
   if (!n) { app.innerHTML = '<p class="empty">Ce mémo n’existe plus.<br><a href="#/memos">Retour aux mémos</a></p>'; return; }
+  if (n.type === 'todo' && n.data.level) return levelWindow(app, n);   // fenêtre d'un niveau : thématiques en 1a, tâches
   const isCL = n.type === 'checklist';
   setTitle(TYPE_META[n.type].label.toUpperCase());
   const dupNote = () => {
@@ -112,26 +225,38 @@ VIEWS.note = (app, r) => {
     state.notes.push(c); save(); toast('Note dupliquée.'); nav('#/note/' + c.id);
   };
   const delNote = () => confirmSheet(`Supprimer « ${noteTitle(n)} » ?`, 'Supprimer',
-    () => { withUndo('Supprimé', () => kill(n)); nav(isCL ? '#/checklists' : '#/memos/type/' + n.type); });
-  app.innerHTML = `<div class="card note-head ${keepClass(n)}">
-      <div class="row"><span style="font-size:22px">${TYPE_META[n.type].icon}</span>
-        <input id="n-title" class="grow titre-big" value="${esc(n.title)}" placeholder="${esc(TYPE_META[n.type].one)}">
+    () => { withUndo('Supprimé', () => kill(n)); nav(isCL ? '#/checklists' : n.type === 'todo' ? '#/afaire' : '#/memos/type/' + n.type); });
+  app.innerHTML = isCL ? `<div id="n-tags" class="tags"></div><div id="n-body"></div>` : `<div class="card note-head ${keepClass(n)}">
+      <div class="row"><span id="n-icon" style="font-size:22px">${noteIcon(n)}</span>
+        <input id="n-title" class="grow titre-big" value="${esc(n.title)}" ${n.type === 'todo' && n.data.now ? 'readonly' : ''} placeholder="${esc(TYPE_META[n.type].one)}">
         <button id="n-fav" aria-label="Favori">${n.fav ? '★' : '☆'}</button></div>
       ${expiryLabel(n) ? `<div class="meta" style="margin-top:6px">${esc(expiryLabel(n))}</div>` : ''}
       <div id="n-tags" class="tags"></div></div>
     <div id="n-body"></div>`;
   const refreshTags = () => { $('#n-tags').innerHTML = tagChips(n.title + ' ' + noteText(n), 12); };
   refreshTags();
-  setSubtitle(noteTitle(n), n);
-  $('#n-title').oninput = e => { n.title = e.target.value; touch(n); save(); setSubtitle(noteTitle(n), n); };
-  $('#n-title').onchange = refreshTags;
-  $('#n-fav').onclick = () => { n.fav = !n.fav; touch(n); save(); $('#n-fav').textContent = n.fav ? '★' : '☆'; };
+  if (isCL) {
+    // check-liste : pas de ligne « nom » ; le nom est dans la barre jaune (☑ et nom à la couleur de conservation), l'étoile favori à sa droite
+    setSubtitle('', n);
+    const star = on => `<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.9-4.7 4.5 1.2 6.4L12 17.4 6.3 20.5l1.2-6.4L2.8 9.6l6.4-.9z" fill="${on ? '#fff' : 'none'}" stroke="#fff" stroke-width="1" stroke-linejoin="round"/></svg>`;
+    $('#view-title').innerHTML = `<span class="cl-tabic">CHECK-LISTES</span><span class="title-pill cl-pill k-${keepOf(n)}"><span class="cl-pname">${esc(noteTitle(n))}</span></span><button type="button" id="n-fav" class="title-fav" aria-label="Favori">${star(n.fav)}</button>`;
+    const fav = $('#n-fav');
+    ['pointerdown', 'pointerup'].forEach(ev => fav.addEventListener(ev, e => e.stopPropagation()));
+    fav.onclick = e => { e.stopPropagation(); n.fav = !n.fav; touch(n); save(); fav.innerHTML = star(n.fav); };
+  } else {
+    setSubtitle(noteTitle(n), n);
+    $('#n-title').oninput = e => { n.title = e.target.value; touch(n); save(); setSubtitle(noteTitle(n), n); };
+    $('#n-title').onchange = refreshTags;
+    $('#n-fav').onclick = () => { n.fav = !n.fav; touch(n); save(); $('#n-fav').textContent = n.fav ? '★' : '☆'; };
+  }
   // Dupliquer / PDF / Supprimer : dans la ligne 1a du bandeau (+ sauvegarde, versions, listes types pour les check-listes). Pas de PDF pour le coffre.
-  setActions([keepAction(n, () => render()), { icon: '⧉', label: 'Dupliquer', fn: dupNote },
+  // check-liste : renommer / dupliquer / supprimer / sauvegarder / versions / listes types sont à la racine de l'onglet Check-listes
+  isCL ? setActions([keepAction(n, () => render()), { icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) },
+    ...listActions(checkCtx(n), { pdf: false }).filter(a => a.label === 'Définir comme type')]) : setActions([keepAction(n, () => render()), { icon: '⧉', label: 'Dupliquer', fn: dupNote },
     ...(n.type !== 'password' ? [{ icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) }] : []),
-    { icon: '🗑', label: 'Supprimer', fn: delNote, cls: 'danger' }, ...(isCL ? listActions(checkCtx(n), { pdf: false }) : [])]);
+    { icon: '🗑', label: 'Supprimer', fn: delNote, cls: 'danger' }, ...(isCL ? listActions(checkCtx(n), { pdf: false }) : []), ...(n.type === 'todo' ? listActions(todoCtx(n), { pdf: false }) : [])]);
   const box = $('#n-body');
-  ({ checklist: bodyChecklist, divers: bodyDivers, password: bodyPassword, voice: bodyVoice }[n.type] || bodyItems)(box, n, refreshTags);
+  ({ checklist: bodyChecklist, todo: bodyTodo, divers: bodyDivers, ecritures: bodyDivers, password: bodyPassword, voice: bodyVoice }[n.type] || bodyItems)(box, n, refreshTags);
 };
 
 /* ---------- Fenêtre centrale sur fond flou (texte complet d'une ligne) ---------- */
@@ -157,23 +282,31 @@ function linePop(it, { onEdit, onDelete }) {
 const CL_ROWS = 20;
 function bodyChecklist(box, n) {
   const items = n.data.items;
+  let moveMode = false;          // mode « déplacer » : chaque élément se glisse à une autre position
+  const openBlk = new Set();     // blocs de texte dépliés (affichage uniquement)
+  const real = () => items.filter(i => !i.blk);
+  const resize = ta => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
   const draw = () => {
-    const cols = n.data.cols || 2, rows = Math.max(CL_ROWS, Math.ceil(items.length / cols));
-    const done = items.filter(i => i.done).length;
-    box.innerHTML = `<form class="row" id="c-form" style="margin-bottom:8px"><input id="c-new" class="grow" placeholder="Ajouter une ligne…" autocomplete="off"><button class="btn-green" type="submit">＋</button></form>
-      <div class="cl-bar"><span class="meta grow">${done}/${items.length}</span>
+    const cols = n.data.cols || 2;
+    const its = real(), done = its.filter(i => i.done).length, allDone = its.length > 0 && done === its.length;
+    // répartition de gauche à droite : on remplit chaque ligne avant de passer à la suivante ; un bloc occupe une ligne entière
+    let col = 0, rowsUsed = 0;
+    items.forEach(i => { if (i.blk) { if (col) rowsUsed++; col = 0; rowsUsed++; } else if (++col === cols) { col = 0; rowsUsed++; } });
+    const empties = (col ? cols - col : 0) + Math.max(0, Math.max(CL_ROWS, rowsUsed + 1) - rowsUsed - (col ? 1 : 0)) * cols;
+    box.innerHTML = `<button type="button" class="add-many" id="c-add"><span class="plus-box">＋</span><span class="grow"><strong>Ajouter un ou plusieurs éléments</strong></span></button>
+      <div class="cl-bar"><span class="meta grow">${done}/${its.length}</span>
         <span class="seg" role="group" aria-label="Colonnes">${[1, 2, 3].map(c => `<button data-cols="${c}" class="${c === cols ? 'on' : ''}" aria-label="${c} colonne${c > 1 ? 's' : ''}">${c}</button>`).join('')}</span>
-        <button class="mini" id="c-paste" title="Coller plusieurs lignes">📋 Coller</button>
-        ${items.length ? '<button class="mini" id="c-reset" title="Tout décocher">↺</button><button class="mini" id="c-sort" title="Cochés en bas">⇩</button>' : ''}</div>
-      <div class="bar" style="margin:4px 0 8px"><i style="width:${items.length ? Math.round(100 * done / items.length) : 0}%"></i></div>
-      <div class="cl-grid" style="--cols:${cols};--rows:${rows}">${items.map(i => `<div class="cl-row ${i.done ? 'done' : ''}" data-id="${i.id}">
-        <input type="checkbox" ${i.done ? 'checked' : ''} aria-label="Coché"><span class="cl-t">${esc(i.t)}</span></div>`).join('')}</div>`;
-    $('#c-form', box).onsubmit = e => {
-      e.preventDefault(); const v = $('#c-new', box).value.trim(); if (!v) return;
-      items.push({ id: uid(), t: v, done: false }); touch(n); save(); draw(); $('#c-new', box).focus();
-    };
+        ${items.length ? `<button class="mini ${moveMode ? 'on blink' : ''}" id="c-move" title="Déplacer les éléments" aria-pressed="${moveMode}">✥</button>` : ''}
+        ${its.length ? `<label class="cl-all" title="Tout sélectionner / désélectionner"><input type="checkbox" id="c-all" ${allDone ? 'checked' : ''} aria-label="Tout cocher ou décocher"></label>` : ''}</div>
+      <div class="bar" style="margin:4px 0 8px"><i style="width:${its.length ? Math.round(100 * done / its.length) : 0}%"></i></div>
+      <div class="cl-grid ${moveMode ? 'moving' : ''}" style="--cols:${cols}">${items.map(i => i.blk
+        ? `<div class="cl-row blk" data-id="${i.id}"><button class="blk-tg" data-tg aria-label="Déplier / replier">${openBlk.has(i.id) ? '▾' : '▸'}</button>
+            <textarea class="blk-t ${openBlk.has(i.id) ? '' : 'collapsed'}" rows="1" placeholder="Bloc de texte…" aria-label="Bloc de texte">${esc(i.t)}</textarea>
+            ${openBlk.has(i.id) ? '<button class="blk-del mini" data-bdel aria-label="Supprimer le bloc">🗑</button>' : ''}</div>`
+        : `<div class="cl-row ${i.done ? 'done' : ''}" data-id="${i.id}"><input type="checkbox" ${i.done ? 'checked' : ''} aria-label="Coché"><span class="cl-t">${esc(i.t)}</span></div>`).join('')}${
+        Array.from({ length: empties }, () => '<div class="cl-empty" data-empty aria-label="Ligne vide : ajouter un bloc de texte"></div>').join('')}</div>`;
     $$('[data-cols]', box).forEach(b => (b.onclick = () => { n.data.cols = +b.dataset.cols; touch(n); save(); draw(); }));
-    $$('.cl-row', box).forEach(el => {
+    $$('.cl-row:not(.blk)', box).forEach(el => {
       const it = items.find(x => x.id === el.dataset.id);
       $('input[type=checkbox]', el).onchange = e => { it.done = e.target.checked; touch(n); save(); draw(); };
       $('.cl-t', el).onclick = () => linePop(it, {
@@ -181,18 +314,72 @@ function bodyChecklist(box, n) {
         onDelete: () => withUndo('Ligne supprimée', () => { items.splice(items.indexOf(it), 1); draw(); }),
       });
     });
-    $('#c-paste', box).onclick = () => openSheet(`<h3>Coller plusieurs lignes</h3><p class="meta">Une ligne de texte = une ligne de la liste.</p>
+    // blocs de texte : flèche = déplier / replier (replié : première ligne seulement) ; Entrée = nouvelle ligne dans le bloc
+    $$('.cl-row.blk', box).forEach(el => {
+      const it = items.find(x => x.id === el.dataset.id), ta = $('textarea', el);
+      if (openBlk.has(it.id)) resize(ta);
+      ta.oninput = () => { it.t = ta.value; touch(n); save(); if (openBlk.has(it.id)) resize(ta); };
+      ta.onblur = () => { if (!it.t.trim() && items.includes(it)) { items.splice(items.indexOf(it), 1); touch(n); save(); draw(); } };   // un bloc laissé vide disparaît
+      $('[data-tg]', el).onclick = () => { openBlk.has(it.id) ? openBlk.delete(it.id) : openBlk.add(it.id); draw(); if (openBlk.has(it.id)) { const t2 = $(`.cl-row[data-id="${it.id}"] textarea`, box); t2.focus(); } };
+      const del = $('[data-bdel]', el);
+      if (del) del.onclick = () => withUndo('Bloc supprimé', () => { items.splice(items.indexOf(it), 1); draw(); });
+    });
+    // clic sur une ligne vide : un bloc de texte pleine largeur est créé (à la suite), les autres éléments se réagencent
+    $$('[data-empty]', box).forEach(el => (el.onclick = () => {
+      const b = { id: uid(), t: '', done: false, blk: true };
+      items.push(b); touch(n); save(); draw();   // créé replié : une seule ligne
+      const ta = $(`.cl-row[data-id="${b.id}"] textarea`, box); if (ta) ta.focus();
+    }));
+    $('#c-add', box).onclick = () => openSheet(`<h3>Ajouter un ou plusieurs éléments</h3><p class="meta">Une ligne de texte = un élément de la liste.</p>
       <textarea id="cp" rows="10"></textarea><div class="row" style="margin-top:12px"><button class="grow" data-no>Annuler</button><button class="grow btn-gold" data-ok>Ajouter</button></div>`, c => {
       $('[data-no]', c).onclick = closeSheet;
       $('[data-ok]', c).onclick = () => {
         const lines = $('#cp', c).value.split('\n').map(l => l.replace(/^\s*(?:[-*•☐☑]|\[[ xX]?\])\s*/, '').trim()).filter(Boolean);
         lines.forEach(t => items.push({ id: uid(), t, done: false }));
-        if (lines.length) { touch(n); save(); draw(); } closeSheet(); toast(`${lines.length} ligne${lines.length > 1 ? 's' : ''} ajoutée${lines.length > 1 ? 's' : ''}.`);
+        if (lines.length) { touch(n); save(); draw(); } closeSheet(); toast(`${lines.length} élément${lines.length > 1 ? 's' : ''} ajouté${lines.length > 1 ? 's' : ''}.`);
       };
     });
-    const rs = $('#c-reset', box); if (rs) rs.onclick = () => { items.forEach(i => (i.done = false)); touch(n); save(); draw(); };
-    const so = $('#c-sort', box); if (so) so.onclick = () => { items.sort((a, b) => a.done - b.done); touch(n); save(); draw(); };
+    const all = $('#c-all', box); if (all) all.onchange = () => { real().forEach(i => (i.done = all.checked)); touch(n); save(); draw(); };
+    const mv = $('#c-move', box); if (mv) mv.onclick = () => { moveMode = !moveMode; draw(); };
+    if (moveMode) bindDrag();
   };
+
+  /* Mode déplacer : on touche un élément et on le glisse vers une autre position (il se place avant la cible, ou en fin de liste sur une ligne vide). */
+  function bindDrag() {
+    const grid = $('.cl-grid', box);
+    grid.onpointerdown = e => {
+      const el = e.target.closest('.cl-row'); if (!el || !grid.contains(el)) return;
+      e.preventDefault();
+      const it = items.find(x => x.id === el.dataset.id); if (!it) return;
+      const r0 = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
+      el.classList.add('lifting'); try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      let target = null, before = true;
+      const clear = () => $$('.drop-before, .drop-after', grid).forEach(x => x.classList.remove('drop-before', 'drop-after'));
+      const move = ev => {
+        el.style.transform = `translate(${ev.clientX - x0}px, ${ev.clientY - y0}px)`;
+        clear(); target = null;
+        const under = document.elementsFromPoint(ev.clientX, ev.clientY).find(x => x !== el && x.matches && x.matches('.cl-row, .cl-empty') && grid.contains(x));
+        if (!under) return;
+        target = under;
+        if (under.matches('.cl-empty')) { under.classList.add('drop-before'); return; }
+        const r = under.getBoundingClientRect(), cols = n.data.cols || 2;
+        before = (cols === 1 || under.classList.contains('blk')) ? ev.clientY < r.top + r.height / 2 : ev.clientX < r.left + r.width / 2;
+        under.classList.add(before ? 'drop-before' : 'drop-after');
+      };
+      const up = () => {
+        grid.removeEventListener('pointermove', move); grid.removeEventListener('pointerup', up); grid.removeEventListener('pointercancel', up);
+        el.classList.remove('lifting'); el.style.transform = ''; clear();
+        if (target) {
+          items.splice(items.indexOf(it), 1);
+          if (target.matches('.cl-empty')) items.push(it);
+          else { const t = items.find(x => x.id === target.dataset.id); items.splice(t ? items.indexOf(t) + (before ? 0 : 1) : items.length, 0, it); }
+          touch(n); save();
+        }
+        draw();
+      };
+      grid.addEventListener('pointermove', move); grid.addEventListener('pointerup', up); grid.addEventListener('pointercancel', up);
+    };
+  }
   draw();
 }
 
@@ -411,3 +598,32 @@ async function bodyPassword(box, n) {
   $('#p-lock', box).onclick = () => lockVault();
   draw();
 }
+
+/** Icône d'une note : celle de son type ; pour une note « À faire », celle de son niveau (🔥 ❗ 👍 🌳). */
+const noteIcon = n => (n.type === 'todo' ? levelIcon(n.data.level) : TYPE_META[n.type].icon);
+
+/* ---------- Une check-liste type : même écran qu'une check-liste, en vert ---------- */
+let tplReturn = false;   // au retour (flèche), on rouvre la fenêtre « Listes types »
+const makeFromTemplate = t => promptSheet('Nom de la nouvelle check-liste', { label: 'Nom', value: t.name, okLabel: 'Créer' }, v => makeFromTemplateNamed(t, v.trim() || t.name));
+const makeFromTemplateNamed = (t, name) => {
+  const nn = newNote('checklist', name);
+  nn.data.items = t.items.map(i => (i.blk ? { id: uid(), t: i.t, done: false, blk: true } : { id: uid(), t: i.t, done: false })); if (t.cols) nn.data.cols = t.cols;
+  touch(nn); save(); nav('#/note/' + nn.id);
+};
+VIEWS.cltype = (app, r) => {
+  const l = state.lists.find(x => x.id === r.id && x.kind === 'template' && !x.deletedAt);
+  if (!l) { nav('#/checklists'); return; }
+  tplReturn = true;
+  l.items.forEach(i => { if (!i.id) i.id = uid(); });
+  // la liste type sert de « note » à l'éditeur de check-liste : titre, données et date de modification sont ceux de la liste type
+  const pn = { id: l.id, type: 'checklist', fav: false, keep: 'never',
+    get title() { return l.name; }, set title(v) { l.name = v; }, get data() { return l; },
+    get updatedAt() { return l.updatedAt; }, set updatedAt(v) { l.updatedAt = v; } };
+  document.body.classList.add('tpl-page');
+  setSubtitle('', null);
+  $('#view-title').innerHTML = `<span class="cl-tabic">LISTE TYPE</span><span class="title-pill cl-pill tpl-pill"><span class="cl-pname">${esc(l.name)}</span></span>`;
+  setActions([{ icon: '＋', label: 'Créer une check-liste', fn: () => makeFromTemplate(l) },
+    { icon: '✎', label: 'Renommer', fn: () => promptSheet('Renommer la liste type', { label: 'Nom', value: l.name, okLabel: 'Renommer' }, v => { l.name = v.trim() || l.name; touch(l); save(); render(); }) }]);
+  app.innerHTML = '<div id="n-body"></div>';
+  bodyChecklist($('#n-body'), pn);
+};
