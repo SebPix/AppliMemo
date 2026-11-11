@@ -107,7 +107,7 @@ VIEWS.checklists = app => {
     ${searchHTML('cl-q', 'Rechercher une check-liste…', clQ)}
     ${lists.length ? `<div class="cl-sel"><label class="cl-all"><input type="checkbox" id="cl-all" aria-label="Tout sélectionner"> <span class="meta" id="cl-cnt"></span></label>
       <div class="cl-acts"><button class="mini" data-act="rename">✎ Renommer</button><button class="mini" data-act="dup">⧉ Dupliquer</button><button class="mini danger" data-act="del">🗑 Supprimer</button>
-        <button class="mini" data-act="save">💾 Sauvegarder</button><button class="mini" data-act="ver">🕘 Versions</button></div></div>` : ''}
+        <button class="mini" data-act="save">💾 Archiver</button><button class="mini" data-act="ver">🕘 Bibliothèque</button></div></div>` : ''}
     <div id="cl-list">${lists.length ? lists.map(n => `<div class="cl-li" data-id="${n.id}"><input type="checkbox" data-sel aria-label="Sélectionner" ${clSel.has(n.id) ? 'checked' : ''}>
       <a class="card item lrow grow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : '☑️'}</span>
       <span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(noteMeta(n))}</span></a></div>`).join('')
@@ -211,6 +211,9 @@ function checklistFromTemplate() {
     })));
 }
 
+/** Étoile favori de la barre du haut (blanche, pleine si favori). */
+const favStar = on => `<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.9-4.7 4.5 1.2 6.4L12 17.4 6.3 20.5l1.2-6.4L2.8 9.6l6.4-.9z" fill="${on ? '#fff' : 'none'}" stroke="#fff" stroke-width="1" stroke-linejoin="round"/></svg>`;
+
 /* ---------- Page d'une note ---------- */
 VIEWS.note = (app, r) => {
   const n = noteById(r.id);
@@ -226,28 +229,35 @@ VIEWS.note = (app, r) => {
   };
   const delNote = () => confirmSheet(`Supprimer « ${noteTitle(n)} » ?`, 'Supprimer',
     () => { withUndo('Supprimé', () => kill(n)); nav(isCL ? '#/checklists' : n.type === 'todo' ? '#/afaire' : '#/memos/type/' + n.type); });
-  app.innerHTML = isCL ? `<div id="n-tags" class="tags"></div><div id="n-body"></div>` : `<div class="card note-head ${keepClass(n)}">
-      <div class="row"><span id="n-icon" style="font-size:22px">${noteIcon(n)}</span>
-        <input id="n-title" class="grow titre-big" value="${esc(n.title)}" ${n.type === 'todo' && n.data.now ? 'readonly' : ''} placeholder="${esc(TYPE_META[n.type].one)}">
-        <button id="n-fav" aria-label="Favori">${n.fav ? '★' : '☆'}</button></div>
-      ${expiryLabel(n) ? `<div class="meta" style="margin-top:6px">${esc(expiryLabel(n))}</div>` : ''}
-      <div id="n-tags" class="tags"></div></div>
+  app.innerHTML = isCL ? `<div id="n-tags" class="tags"></div><div id="n-body"></div>` : `<div class="card note-head ${keepClass(n)}" id="n-head">
+      <div class="row nh-row"><div id="n-tags" class="tags grow"></div>
+        ${expiryLabel(n) ? `<button type="button" class="info-btn" id="n-info" aria-label="Afficher ou masquer les informations de suppression" aria-pressed="false" title="Informations">i</button>` : ''}</div>
+      ${expiryLabel(n) ? `<p class="meta day-info" id="n-expiry" hidden>${esc(expiryLabel(n))}</p>` : ''}</div>
     <div id="n-body"></div>`;
-  const refreshTags = () => { $('#n-tags').innerHTML = tagChips(n.title + ' ' + noteText(n), 12); };
+  const refreshTags = () => {
+    const html = tagChips(n.title + ' ' + noteText(n), 12);
+    $('#n-tags').innerHTML = html;
+    const head = $('#n-head'); if (head) head.hidden = !html && !expiryLabel(n);   // carte d'en-tête vide : masquée
+  };
   refreshTags();
   if (isCL) {
     // check-liste : pas de ligne « nom » ; le nom est dans la barre jaune (☑ et nom à la couleur de conservation), l'étoile favori à sa droite
     setSubtitle('', n);
-    const star = on => `<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.9-4.7 4.5 1.2 6.4L12 17.4 6.3 20.5l1.2-6.4L2.8 9.6l6.4-.9z" fill="${on ? '#fff' : 'none'}" stroke="#fff" stroke-width="1" stroke-linejoin="round"/></svg>`;
+    const star = favStar;
     $('#view-title').innerHTML = `<span class="cl-tabic">CHECK-LISTES</span><span class="title-pill cl-pill k-${keepOf(n)}"><span class="cl-pname">${esc(noteTitle(n))}</span></span><button type="button" id="n-fav" class="title-fav" aria-label="Favori">${star(n.fav)}</button>`;
     const fav = $('#n-fav');
     ['pointerdown', 'pointerup'].forEach(ev => fav.addEventListener(ev, e => e.stopPropagation()));
     fav.onclick = e => { e.stopPropagation(); n.fav = !n.fav; touch(n); save(); fav.innerHTML = star(n.fav); };
   } else {
-    setSubtitle(noteTitle(n), n);
-    $('#n-title').oninput = e => { n.title = e.target.value; touch(n); save(); setSubtitle(noteTitle(n), n); };
-    $('#n-title').onchange = refreshTags;
-    $('#n-fav').onclick = () => { n.fav = !n.fav; touch(n); save(); $('#n-fav').textContent = n.fav ? '★' : '☆'; };
+    // mémo : comme une journée, « icône + nom ✏️ ★ » dans la barre du haut (type du mémo en dessous quand il a un nom) ; le favori ★ reste à côté du nom
+    const readonly = n.type === 'todo' && n.data.now;
+    setDayTitle({ icon: noteIcon(n), name: noteTitle(n), sub: n.title ? TYPE_META[n.type].one : '', item: n,
+      onEdit: readonly ? null : () => promptSheet('Nom du mémo', { label: 'Nom', value: n.title || '', okLabel: 'OK' }, v => { n.title = v.trim(); touch(n); save(); render(); }),
+      extra: `<button type="button" id="n-fav" class="title-fav" aria-label="Favori">${favStar(n.fav)}</button>` });
+    const fav = $('#n-fav');
+    fav.onclick = e => { e.stopPropagation(); n.fav = !n.fav; touch(n); save(); fav.innerHTML = favStar(n.fav); };
+    const info = $('#n-info');
+    if (info) info.onclick = () => { const on = $('#n-expiry').hidden; $('#n-expiry').hidden = !on; info.classList.toggle('on', on); info.setAttribute('aria-pressed', String(on)); };
   }
   // Dupliquer / PDF / Supprimer : dans la ligne 1a du bandeau (+ sauvegarde, versions, listes types pour les check-listes). Pas de PDF pour le coffre.
   // check-liste : renommer / dupliquer / supprimer / sauvegarder / versions / listes types sont à la racine de l'onglet Check-listes

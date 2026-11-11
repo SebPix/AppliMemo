@@ -72,7 +72,7 @@ const Rich = (() => {
   }
 
   /* ---------- Barre de mise en forme ---------- */
-  const bar = $('#fmt-bar'), pop = $('#fmt-pop'), toggleBtn = $('#btn-fmt');
+  const bar = $('#fmt-bar'), pop = $('#fmt-pop');
   let popFor = '';
   const swatch = (c, label, i) => `<button class="sw" data-i="${i}" style="background:${c}" aria-label="${esc(label)}"></button>`;
   const POPS = {
@@ -97,9 +97,9 @@ const Rich = (() => {
     pop.style.left = Math.max(6, Math.min(r.left, innerWidth - pw - 6)) + 'px';
   }
   // Ne pas voler le focus à l'éditeur (sinon la sélection est perdue)
-  const keepFocus = e => { if (e.target.closest('#fmt-bar, #fmt-pop, #btn-fmt')) e.preventDefault(); };
+  const keepFocus = e => { if (e.target.closest('#fmt-bar, #fmt-pop, #fmt-toggle')) e.preventDefault(); };
   document.addEventListener('mousedown', keepFocus);
-  document.addEventListener('pointerdown', e => { if (!e.target.closest('#fmt-bar, #fmt-pop, #btn-fmt')) closePopup(); });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#fmt-bar, #fmt-pop, #fmt-toggle')) closePopup(); });
   bar.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     const c = b.dataset.c;
@@ -110,14 +110,6 @@ const Rich = (() => {
     const b = e.target.closest('button'); if (!b) return;
     const k = popFor; closePopup(); POPS[k].fn(+b.dataset.i);
   });
-
-  /* La flèche ▴ remplace la ligne 1a (boutons) par 1b (mise en forme, qui monte) ; ▾ ramène 1a (qui redescend).
-   * Elle n'est visible que si 1a et 1b existent (voir syncTop() dans app.js). */
-  toggleBtn.onclick = () => {
-    fmtOpen = !fmtOpen; syncTop();
-    const el = fmtOpen ? bar : $('#top-actions');
-    if (!el.hidden) { el.classList.remove('anim'); void el.offsetWidth; el.classList.add('anim'); el.onanimationend = () => el.classList.remove('anim'); }
-  };
 
   return { editor, read, bind, view, append, content };
 })();

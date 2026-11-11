@@ -268,7 +268,7 @@ const VIEWS = {};            // rempli par les fichiers de vues : VIEWS[nom] = (
 let renderTok = 0;           // invalide les rendus asynchrones périmés
 let navCount = 0;            // nombre de navigations depuis le chargement (pour le bouton retour)
 const APP_VERSION = '1.1.5';
-const TITLES = { menu: `APPLI MEMO / version N° ${APP_VERSION}`, journee: 'MA JOURNÉE', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
+const TITLES = { menu: `APPLI MEMO / version N° ${APP_VERSION}`, journee: 'JOURNÉES / PLANNING', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
 
 function parseRoute() {
   const parts = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/').filter(Boolean);
@@ -291,7 +291,7 @@ const PARENT = { cltype: '#/checklists', jtype: '#/journee', planning: '#/journe
 const tabLast = {};
 /* Page MENU d'accueil : tous les onglets en gros boutons, plus Préférences et ＋ Créer (barre du bas masquée sur cette page). */
 VIEWS.menu = app => {
-  const T = [['journee', '📅', 'Journée'], ['afaire', '👁️', 'À faire'], ['checklists', '☑️', 'Check-listes'], ['memos', '📝', 'Mémos'], ['biblio', '📚', 'Bibliothèque'], ['quick', '<b class="rb-star">★</b>', 'Accès rapide']];
+  const T = [['journee', '📅', 'Journées'], ['afaire', '👁️', 'À faire'], ['checklists', '☑️', 'Check-listes'], ['memos', '📝', 'Mémos'], ['biblio', '📚', 'Bibliothèque'], ['quick', '<b class="rb-star">★</b>', 'Accès rapide']];
   app.innerHTML = `<div class="menu-wrap"><div class="menu-all"><div class="menu-grid">${T.map(([v, ic, lab]) => `<button type="button" class="menu-btn" data-go="${v}"><span class="mi">${ic}</span><strong>${lab}</strong></button>`).join('')}</div>
     <div class="menu-low"><button type="button" class="menu-small" data-go="reglages" aria-label="Préférences"><span class="mi">⚙︎</span><span>Préférences</span></button>
     <button type="button" class="menu-small menu-create" id="menu-add" aria-label="Créer"><span class="mi">＋</span><span>Créer</span></button>
@@ -349,10 +349,14 @@ function render() {
   document.body.classList.toggle('on-menu', r.name === 'menu');   // page MENU : pas de barre d'onglets en bas   // fond vert des listes types : posé par leur vue
   $$('.top-row .tnav').forEach(x => x.remove()); $('.top-row').classList.remove('has-nav', 'has-tgl');
   { const fr = $('#filter-rows'); fr.hidden = true; fr.innerHTML = ''; }   // lignes de filtres : propres à la liste complète d'Accès rapide   // flèches de durée : propres à la fenêtre d'un niveau
+  { const ds = $('#day-strip'); ds.hidden = true; ds.innerHTML = ''; }   // ligne de boutons d'une journée : posée par sa vue
   libChrome(r);
   { // icône du menu (rubrique) de la page, tout à gauche de la barre du haut, sur toutes les pages d'une rubrique
     const ico = { journee: '📅', afaire: '👁️', checklists: '☑️', memos: '📝', biblio: libOverview ? '<b class="rb-star">★</b>' : '📚' }[tab] || '';
     const ti = $('#top-ico'); ti.innerHTML = ico; ti.hidden = !ico;
+    const up = !!parentHash(r);
+    $('#top-arrow').hidden = !up;   // en avançant dans l'arborescence : flèche double « page précédente » à gauche de l'icône
+    $('#top-back').hidden = !ico && !up;
   }
   setActions(null);
   VIEWS[r.name](app, r);
@@ -362,22 +366,18 @@ function render() {
 }
 
 /* Bandeau du haut. Vocabulaire : ligne titre ; sous le titre, ligne 1a = boutons contextuels (#top-actions),
- * ligne 1b = outils de mise en forme (#fmt-bar, voir rich.js).
- *  - 1a : présente si la page a des boutons ; affichée par défaut.
- *  - 1b : disponible seulement s'il y a un texte à remplir dans la page (un éditeur .rte) ; si 1a est vide, 1b s'affiche seule.
- *  - Flèche ▴/▾ : seulement si 1a ET 1b existent (il y a alors quelque chose à échanger) ; si ni 1a ni 1b, seule la ligne titre reste.
- * Tout est recalculé par syncTop() quand la page ou son contenu change (éditeur déplié / replié, etc.). */
-let topActions = [], fmtOpen = false;   // fmtOpen : l'utilisateur a choisi d'afficher 1b à la place de 1a (quand les deux existent)
+ * ligne 1b = outils de mise en forme (#fmt-bar, voir rich.js). Elles se déroulent par des clics sur le titre : voir barNext() plus bas. */
+let topActions = [];
 let topSubAlways = false;   // vrai : le sous-titre (date de la journée, résumé du planning) reste affiché même carte d'en-tête dépliée
 let titleEdit = null;       // action du stylo ✏️ du titre (renommer la journée / le planning)
 let topSub = '', topSubKeep = 'never';   // nom de l'élément en cours (note, journée), affiché sous le titre quand la carte d'en-tête est repliée, couleur = durée d'archivage
 function setSubtitle(t, item) { topSub = t || ''; topSubKeep = keepOf(item); syncTop(); }
 /** Titre des pages Journée / Planning : « icône + nom ✏️ » dans la barre du haut, avec la date (ou un résumé) juste dessous. */
-function setDayTitle({ icon, name, sub, item, onEdit }) {
+function setDayTitle({ icon, name, sub, item, onEdit, extra = '' }) {
   titleEdit = onEdit || null;
   const t = $('#view-title');
   t.classList.add('tt');
-  t.innerHTML = `<span class="tt-ico">${icon}</span><span class="tt-name">${esc(name)}</span><span class="tt-pen" role="button" tabindex="0" aria-label="Modifier le nom" title="Modifier le nom">✏️</span>`;
+  t.innerHTML = `<span class="tt-ico">${icon}</span><span class="tt-name">${esc(name)}</span>${onEdit ? '<span class="tt-pen" role="button" tabindex="0" aria-label="Modifier le nom" title="Modifier le nom">✏️</span>' : ''}${extra}`;
   topSub = sub || ''; topSubKeep = keepOf(item); topSubAlways = true; syncTop();
 }
 function setActions(list) {
@@ -385,99 +385,103 @@ function setActions(list) {
   $('#top-actions').innerHTML = topActions.map((a, i) => `<button data-i="${i}" class="${a.cls || ''}"><span>${a.icon}</span>${esc(a.label)}</button>`).join('');
   syncTop();
 }
-// appui d'1 s sur un bouton qui a une action « hold » (ex. thématique : renommer / supprimer) ; le clic qui suit est alors ignoré
+// appui d'1 s sur un bouton qui a une action « hold » (ex. thématique : renommer / supprimer) ; le clic qui suit est ignoré
+// (même comportement pour la ligne 1a et pour la fenêtre centrale qui reprend ses boutons)
 let holdTimer = 0, held = false;
-$('#top-actions').addEventListener('pointerdown', e => {
-  const b = e.target.closest('button'), a = b && topActions[+b.dataset.i];
-  clearTimeout(holdTimer); held = false;
-  if (a && a.hold) holdTimer = setTimeout(() => { held = true; a.hold(); }, 1000);
-});
-['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('#top-actions').addEventListener(ev, () => clearTimeout(holdTimer)));
-$('#top-actions').addEventListener('contextmenu', e => e.preventDefault());
-$('#top-actions').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  if (held) { held = false; return; }
-  topActions[+b.dataset.i].fn();
-});
+function bindActionHost(host, afterRun) {
+  host.addEventListener('pointerdown', e => {
+    const b = e.target.closest('button'), a = b && topActions[+b.dataset.i];
+    clearTimeout(holdTimer); held = false;
+    if (a && a.hold) holdTimer = setTimeout(() => { held = true; if (afterRun) afterRun(); a.hold(); }, 1000);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => host.addEventListener(ev, () => clearTimeout(holdTimer)));
+  host.addEventListener('contextmenu', e => e.preventDefault());
+  host.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (held) { held = false; return; }
+    const a = topActions[+b.dataset.i]; if (!a) return;
+    if (afterRun) afterRun();
+    a.fn();
+  });
+}
+bindActionHost($('#top-actions'));
 function updateTop() { document.documentElement.style.setProperty('--toph', $('.topbar').offsetHeight + 'px'); }
 window.addEventListener('resize', updateTop);
 function setTitle(t) { $('#view-title').textContent = t; }
 
-/* Appuis longs successifs sur le titre : (carte d'en-tête, ligne 1a/1b) → (masquée, visible) → (masquée, masquée) → (masquée, visible) → (visibles) → …
- * Les étapes qui ne changeraient rien (pas de carte, pas de ligne 1a/1b) sont sautées : aucun clic inutile. Remis à zéro à chaque changement de page. */
-const FOLD_STEPS = [[0, 0], [1, 0], [1, 1], [1, 0]];
-let foldIdx = 0;
-let actionsExpanded = false, shownLine = '';   // appui long (1 s) sur le titre : la ligne visible (1a ou 1b) se déploie à la verticale (2 à 3 boutons par ligne)
-const hasCard = () => { const c = $('#app').firstElementChild; return !!c && c.matches('.day-head, .note-head'); };   // seules les vraies cartes d'en-tête (journée, mémo) se replient avec le titre ; jamais le contenu de la fenêtre
-function topLines() {
-  const has1a = topActions.length > 0, has1b = !!$('#app .rte');
-  const show1b = has1b && (fmtOpen || !has1a);
-  return { has1a, has1b, show1b, show1a: has1a && !show1b, arrow: has1a && has1b };
+/* Barre du haut — même comportement dans toutes les rubriques. Les boutons de la page ne sont plus sous le titre : ils s'ouvrent dans la LUCARNE,
+ * une fenêtre au centre de l'écran, par un clic sur le titre (un deuxième clic sur le titre, ou un clic en dehors de la lucarne, la referme).
+ * Sans bouton sur la page, le clic ne fait rien. État : 'none' | 'pop' (remis à zéro à chaque changement de page).
+ * La mise en forme du texte n'est pas dans la lucarne : elle a sa propre bande (#fmt-strip, couleur intermédiaire entre la barre et le fond),
+ * affichée d'office dès que la page contient un texte à remplir (.rte) et rétractable / dépliable par son bouton (#fmt-toggle).
+ * Tout est recalculé par syncTop() quand la page ou son contenu change. */
+let barState = 'none';
+let fmtRetracted = false;   // bande de mise en forme rétractée (préférence de l'appareil)
+let fmtMulti = false;       // appui long (1 s) sur « Mise en forme » : la bande passe sur 2 lignes ou plus ; une seule ligne par défaut (remis à zéro à chaque page)
+try { fmtRetracted = localStorage.getItem('applimemo.fmt.retracted') === '1'; } catch (e) {}
+function barLines() { return { has1a: topActions.length > 0, has1b: !!$('#app .rte') }; }
+function effBar(L) { return barState === 'pop' && L.has1a ? 'pop' : 'none'; }
+/** La lucarne : les boutons de la page (liste 1a), en grille, dans une fenêtre au centre. */
+function renderBarPop(show) {
+  const bp = $('#bar-pop'); bp.hidden = !show;
+  if (!show) return;
+  const label = ($('#view-title').innerText || '').replace(/✏️|\s+/g, ' ').trim();
+  $('.bp-title', bp).textContent = label;
+  $('.bp-grid', bp).innerHTML = topActions.map((a, i) => `<button type="button" data-i="${i}" class="${a.cls || ''}"><span>${a.icon}</span>${esc(a.label)}</button>`).join('');
 }
-const foldEff = (idx, rowOn) => ({ c: !!FOLD_STEPS[idx][0] && hasCard(), r: !!FOLD_STEPS[idx][1] && rowOn });
-const sameFold = (a, b) => a.c === b.c && a.r === b.r;
 function syncTop() {
-  const L = topLines(), rowOn = L.show1a || L.show1b;
-  $('#top-actions').hidden = !L.show1a;
-  $('#fmt-bar').hidden = !L.show1b;
-  $('.top-row2').hidden = !rowOn;
-  $('#btn-fmt').hidden = $('.top-row2 > .vsep').hidden = !L.arrow;
-  const btn = $('#btn-fmt');
-  btn.textContent = L.show1b ? '▾' : '▴';
-  btn.setAttribute('aria-expanded', L.show1b);
-  btn.setAttribute('aria-label', L.show1b ? 'Revenir aux boutons' : 'Afficher la mise en forme du texte');
-  if (!L.show1b) { const p = $('#fmt-pop'); p.hidden = true; }
-  const f = foldEff(foldIdx, rowOn);
-  const line = L.show1b ? 'b' : L.show1a ? 'a' : '';
-  if (!line || f.r || line !== shownLine) actionsExpanded = false;   // on replie en changeant de ligne ou quand la ligne n'est plus visible
-  shownLine = line;
-  const vis = L.show1b ? $('#fmt-bar') : $('#top-actions');
-  $('#top-actions').classList.toggle('expanded', actionsExpanded && line === 'a');
-  $('#fmt-bar').classList.toggle('expanded', actionsExpanded && line === 'b');
-  $('.top-row2').classList.toggle('expanded', actionsExpanded);
-  if (actionsExpanded) vis.style.setProperty('--cols', Math.min(3, Math.max(2, Math.floor((vis.clientWidth || 300) / 110))));
-  document.body.toggleAttribute('data-hide-card', f.c);
-  const sub = $('#top-sub'); sub.textContent = topSub; sub.className = 'top-sub k-' + topSubKeep + (topSubAlways ? ' always' : ''); sub.hidden = !(topSub && (f.c || topSubAlways));
+  const L = barLines(), st = effBar(L);
+  $('#top-actions').hidden = true;   // plus de ligne de boutons sous le titre : tout est dans la lucarne
+  $('.top-row2').hidden = true;
+  renderBarPop(st === 'pop');
+  // bande de mise en forme : visible d'office s'il y a un texte à remplir ; rétractée = fine ligne avec « Mise en forme ▾ »
+  const strip = $('#fmt-strip'), tg = $('#fmt-toggle');
+  strip.hidden = !L.has1b;
+  strip.classList.toggle('retracted', fmtRetracted);
+  strip.classList.toggle('multi', fmtMulti && !fmtRetracted && L.has1b);
+  tg.textContent = fmtRetracted ? 'Mise en forme ▾' : 'Mise en forme ▴';
+  tg.setAttribute('aria-expanded', String(!fmtRetracted));
+  tg.setAttribute('aria-label', fmtRetracted ? 'Déplier la mise en forme du texte' : 'Rétracter la mise en forme du texte');
+  if (!L.has1b || fmtRetracted) $('#fmt-pop').hidden = true;
+  const sub = $('#top-sub'); sub.textContent = topSub; sub.className = 'top-sub k-' + topSubKeep + (topSubAlways ? ' always' : ''); sub.hidden = !(topSub && topSubAlways);
   document.body.toggleAttribute('data-sub', !sub.hidden);
-  document.body.toggleAttribute('data-hide-row', f.r);
-  if (f.r) $('#fmt-pop').hidden = true;
-  const title = $('#view-title'), cur = f;
-  const foldable = FOLD_STEPS.some((_, i) => !sameFold(foldEff(i, rowOn), cur));
-  title.classList.toggle('foldable', foldable);
   updateTop();
 }
-function foldNext() {
-  const L = topLines(), rowOn = L.show1a || L.show1b, cur = foldEff(foldIdx, rowOn);
-  for (let k = 1; k <= FOLD_STEPS.length; k++) {
-    const i = (foldIdx + k) % FOLD_STEPS.length;
-    if (!sameFold(foldEff(i, rowOn), cur)) { foldIdx = i; break; }
-  }
+function barNext() {
+  const L = barLines(), cur = effBar(L);
+  barState = cur === 'none' && L.has1a ? 'pop' : 'none';
   syncTop();
 }
-/* Titre : un clic remonte d'un niveau dans l'arborescence (page racine : accueil) ; un appui long (1 s) replie l'en-tête (cycle foldNext). */
-let pressTimer = 0, longFired = false;
+// lucarne : un clic en dehors la ferme ; un bouton lance son action puis ferme la lucarne
+bindActionHost($('.bp-grid', $('#bar-pop')), () => { barState = 'none'; syncTop(); });
+$('#bar-pop').addEventListener('click', e => { if (e.target === $('#bar-pop')) { barState = 'none'; syncTop(); } });
+{ // appui long (1 s) sur « Mise en forme » : une ligne ↔ plusieurs lignes ; le clic bref rétracte / déplie
+  const tgb = $('#fmt-toggle'); let t = 0, fired = false;
+  tgb.addEventListener('pointerdown', e => { if (e.button > 0) return; fired = false; clearTimeout(t); t = setTimeout(() => { fired = true; fmtMulti = !fmtMulti; if (fmtMulti) fmtRetracted = false; syncTop(); }, 1000); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => tgb.addEventListener(ev, () => clearTimeout(t)));
+  tgb.addEventListener('contextmenu', e => e.preventDefault());
+  tgb.addEventListener('click', e => { if (fired) { fired = false; e.stopImmediatePropagation(); } }, true);
+}
+$('#fmt-toggle').onclick = () => {
+  fmtRetracted = !fmtRetracted;
+  try { localStorage.setItem('applimemo.fmt.retracted', fmtRetracted ? '1' : '0'); } catch (e) {}
+  syncTop();
+};
+/* Le retour en arrière se fait par le bloc flèches + icône (#top-back), l'accueil par le bouton à 4 lignes (#btn-home). */
 const titleEl = $('#view-title');
-titleEl.addEventListener('pointerdown', e => {
-  if (e.button > 0) return;
-  longFired = false; clearTimeout(pressTimer);
-  pressTimer = setTimeout(() => { longFired = true; foldNext(); }, 1000);
-});
-['pointerup', 'pointercancel', 'pointerleave'].forEach(t => titleEl.addEventListener(t, () => clearTimeout(pressTimer)));
 titleEl.addEventListener('contextmenu', e => e.preventDefault());
-window.addEventListener('resize', () => { if (actionsExpanded) syncTop(); });
-titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); return; } if (e.target.closest('button, a')) return; goUp(); });
-$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); } else goUp(); } });
+titleEl.addEventListener('click', e => { if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); return; } if (e.target.closest('button, a')) return; barNext(); });
+titleEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); } else barNext(); } });
 // un éditeur de texte qui apparaît / disparaît change la disponibilité de la ligne 1b
 new MutationObserver(syncTop).observe($('#app'), { childList: true, subtree: true });   // callbacks déjà groupés par le navigateur
-window.addEventListener('hashchange', () => { navCount++; foldIdx = 0; actionsExpanded = false; render(); });
+window.addEventListener('hashchange', () => { navCount++; barState = 'none'; fmtMulti = false; render(); });
 $('#tabbar').addEventListener('click', e => {
   const b = e.target.closest('button[data-view]'); if (!b) return;
   const v = b.dataset.view, cur = tabOf(parseRoute());
   nav(cur === v ? '#/' + v : rememberedHash(v));   // autre onglet : dernière fenêtre ; onglet actif : racine
 });
-// roue crantée : 1 clic = Préférences ; 2 clics rapprochés = retour à la page MENU d'accueil
-let gearAt = 0;
-$('#btn-gear').onclick = () => { const t = Date.now(); if (t - gearAt < 450) { gearAt = 0; nav('#/menu'); } else { gearAt = t; nav('#/reglages'); } };
+// bouton d'accueil (4 lignes horizontales)
+$('#btn-home').onclick = () => nav('#/menu');   // bouton à 4 lignes horizontales, en haut à droite : page d'accueil (les Préférences sont sur l'accueil)
 /** Page « au-dessus » dans l'arborescence (null : page racine → le clic sur le titre mène alors à l'accueil). */
 function parentHash(r) {
   if (r.name === 'journee') return r.date ? '#/journee' : null;
@@ -489,3 +493,4 @@ function parentHash(r) {
 }
 /** Clic sur le titre : monte d'un niveau dans l'arborescence ; depuis une page racine, retour à l'accueil. */
 function goUp() { nav(parentHash(parseRoute()) || '#/menu'); }
+$('#top-back').onclick = goUp;   // flèches + icône de la rubrique = un seul bloc cliquable (page racine : accueil)

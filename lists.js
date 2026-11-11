@@ -44,8 +44,8 @@ const countLabel = (n, unit = 'ligne') => `${n} ${unit}${n > 1 ? 's' : ''}`;
 /** Boutons communs de la barre du haut : sauvegarder, versions, listes types, définir comme type, PDF. */
 function listActions(ctx, { pdf = true } = {}) {
   return [
-    { icon: '💾', label: 'Sauvegarder', fn: () => saveVersion(ctx) },
-    { icon: '🕘', label: 'Versions', fn: () => versionsSheet(ctx) },
+    { icon: '💾', label: 'Archiver', fn: () => saveVersion(ctx) },
+    { icon: '🕘', label: 'Bibliothèque', fn: () => versionsSheet(ctx) },
     { icon: '📑', label: ctx.typeLabel || 'Listes types', fn: () => templatesSheet(ctx) },
     { icon: '⭐', label: 'Définir comme type', fn: () => defineTemplate(ctx) },
     ...(pdf ? [{ icon: '📄', label: 'PDF', fn: ctx.pdf }] : []),
@@ -55,10 +55,10 @@ function listActions(ctx, { pdf = true } = {}) {
 /** Sauvegarde : demande le nom et la durée de conservation (grise = 1 semaine par défaut). */
 function saveVersion(ctx) {
   if (!ctx.items().length && !(ctx.sub && ctx.sub())) return toast('Rien à sauvegarder : c’est vide.');
-  openSheet(`<h3>Sauvegarder cette version</h3><form class="form"><label>Nom de la version<input name="v" value="${esc(`Version du ${fmtStamp()}`)}" autocomplete="off"></label>
+  openSheet(`<h3>Archiver cette version</h3><form class="form"><label>Nom de la version<input name="v" value="${esc(`Version du ${fmtStamp()}`)}" autocomplete="off"></label>
     <div class="h2" style="margin-top:4px">Durée de sauvegarde</div>
     ${KEEP_ORDER.map(k => `<label class="keeppick kc k-${k}"><input type="radio" name="k" value="${k}" ${k === 'week' ? 'checked' : ''}><span><strong>${esc(KEEP[k].label)}</strong> <span class="meta">${esc(KEEP[k].desc)}</span></span></label>`).join('')}
-    <div class="row" style="margin-top:10px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Sauvegarder</button></div></form>`, c => {
+    <div class="row" style="margin-top:10px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Archiver</button></div></form>`, c => {
     $('[data-no]', c).onclick = closeSheet;
     $('form', c).onsubmit = e => {
       e.preventDefault();
@@ -107,5 +107,5 @@ function pickerSheet(ctx, kind, title, emptyMsg, loadLabel) {
   };
   draw();
 }
-const versionsSheet = ctx => pickerSheet(ctx, 'version', 'Charger une ancienne version', 'Aucune version sauvegardée. Utilise « Sauvegarder ».', 'Version chargée');
+const versionsSheet = ctx => pickerSheet(ctx, 'version', 'Importer depuis la bibliothèque', 'Aucune version archivée. Utilise « Archiver ».', 'Version chargée');
 const templatesSheet = ctx => pickerSheet(ctx, 'template', `Sélectionner une ${ctx.typeWord || 'liste type'}`, `Aucune ${ctx.typeWord || 'liste type'}. Utilise « Définir comme type ».`, 'Modèle chargé');

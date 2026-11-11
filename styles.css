@@ -106,7 +106,8 @@ textarea { resize: vertical; min-height: 120px; }
 
 
 /* --- Ajouts v1.1.1 : mémos, bibliothèque, préférences --- */
-.topbar .gear { font-size: 26px; padding: 0 8px; line-height: 1; }
+.topbar .home { padding: 0 8px; line-height: 1; display: flex; align-items: center; }
+.topbar .home svg { width: 24px; height: 24px; fill: currentColor; display: block; }
 a { color: inherit; }
 a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: #e6e6e6; color: var(--ink); border-radius: 10px; padding: 8px 12px; min-height: 40px; }
 .card h3 { margin: 0 0 8px; font-size: 16px; }
@@ -880,7 +881,7 @@ html.plan-snap, html.plan-snap body { scroll-snap-type: y proximity; }
 .amelio:not(.open) .am-tab { flex: none; padding: 14px 0; }
 
 /* Icône de la rubrique, tout à gauche de la barre du haut sur sa page racine */
-.top-ico { flex: none; width: 36px; text-align: center; font-size: 24px; line-height: 1; }
+.top-ico { flex: none; width: 30px; text-align: center; font-size: 24px; line-height: 1; }
 .top-ico[hidden] { display: none; }
 
 /* À FAIRE (racine) : contour bleu (couleur de la barre du haut) sur « Toutes les tâches » */
@@ -891,10 +892,132 @@ html.plan-snap, html.plan-snap body { scroll-snap-type: y proximity; }
 .top-row.has-nav .tnav-r { right: auto; left: calc(50% + var(--navhalf, 90px) + 4px); }
 .top-row.has-nav h1 { max-width: calc(var(--navhalf, 90px) * 2); }
 /* titre de À faire un peu plus compact pour que « À FAIRE 🧐 Toutes les tâches » tienne entre les deux flèches */
-.top-row.has-nav h1 { letter-spacing: .03em; }
-.top-row.has-nav h1 .title-pill { padding: 2px 7px; margin-left: 5px; }
+.top-row.has-nav h1 { letter-spacing: 0; }
+.top-row.has-nav h1 .title-pill { padding: 2px 6px; margin-left: 4px; }
+.top-row .tnav { margin: 0; }
 
 /* « Toutes les tâches » : les deux boutons « Toutes » sur 2 lignes, le complément (durées / thématiques) en plus petit */
 .chiprow { align-items: center; }
 .chiprow .chip.two { line-height: 1.1; padding-block: 3px; }
 .chiprow .chip .c2 { display: block; font-size: 10px; font-weight: 500; opacity: .9; }
+
+/* Flèche « page précédente » à gauche de l'icône de rubrique : même hauteur que l'icône, couleur du fond de page, contour fin marqué, pointe vers la gauche */
+.top-back { flex: none; display: flex; align-items: center; gap: 2px; min-height: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.top-back[hidden] { display: none; }
+.top-arrow { flex: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+.top-arrow[hidden] { display: none; }
+.top-arrow svg { width: 16px; height: 16px; display: block; overflow: visible; }
+.top-arrow path { fill: var(--sbg, var(--bg)); stroke: #1f1f1f; stroke-width: 1.3; stroke-linejoin: round; }
+
+
+/* Barre du haut : 1a et 1b sont deux rangées empilées (chacune défilable de gauche à droite) ; le titre se clique pour les dérouler */
+.top-row2 { flex-direction: column; align-items: stretch; gap: 6px; }
+.top-row2 .top-actions, .top-row2 .fmt-bar { flex: none; width: 100%; }
+.topbar h1 { cursor: pointer; }
+/* « i » (échéance) dans l'en-tête d'un mémo, comme pour les journées */
+.note-head .info-btn { flex: none; box-sizing: border-box; width: 26px; height: 26px; min-width: 26px; min-height: 0; aspect-ratio: 1; padding: 0; border-radius: 50%;
+  border: 1.5px solid var(--muted); background: transparent; color: var(--muted); box-shadow: none; font: italic 700 15px/1 Georgia, serif; display: inline-flex; align-items: center; justify-content: center; }
+.note-head .info-btn.on { background: var(--muted); color: var(--card); }
+.note-head .nh-row { align-items: center; gap: 8px; }
+.note-head .day-info { margin: 8px 2px 0; }
+.note-head[hidden] { display: none; }
+
+/* Mise en forme du texte : bande propre sous la barre du haut, couleur intermédiaire entre la barre (--sbar) et le fond de page (--sbg) :
+ * le fond de page + la couleur de la barre à 50 % par-dessus (sans color-mix, pour iOS 14). Visible d'office s'il y a un texte à remplir. */
+.fmt-strip { position: relative; isolation: isolate; display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--sbg, var(--bg)); }
+.fmt-strip::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--sbar, var(--gold)); opacity: .5; }
+.fmt-strip[hidden] { display: none; }
+.fmt-strip .fmt-bar { flex: 1 1 auto; min-width: 0; }
+:root[data-theme] .fmt-strip .fmt-bar button { background: rgba(255,255,255,.7); color: #2b2b2b; }
+.fmt-strip .vsep { background: rgba(0,0,0,.3); }
+.fmt-strip .fmt-toggle { flex: none; margin: 0; min-height: 34px; padding: 0 10px !important; border: 0; border-radius: 10px; background: rgba(255,255,255,.7); color: #2b2b2b; font-size: 16px !important; white-space: nowrap; }
+.fmt-strip.retracted { padding-block: 3px; justify-content: flex-end; }
+.fmt-strip.retracted .fmt-bar { display: none; }
+.fmt-strip.retracted .fmt-toggle { min-height: 24px; font-size: 12px !important; font-weight: 600; }
+
+/* Appui long sur « Mise en forme » : la bande passe sur 2 lignes ou plus (retour à la ligne des boutons, sans défilement) */
+.fmt-strip .fmt-toggle { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.fmt-strip.multi { align-items: flex-start; }
+.fmt-strip.multi .fmt-bar { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; row-gap: 6px; }
+.fmt-strip.multi .fmt-bar .vsep { display: none; }
+/* libellé « Mise en forme » compact (même taille déplié / rétracté) : laisse de la place aux boutons, surtout sur plusieurs lignes */
+.fmt-strip .fmt-toggle { font-size: 12px !important; font-weight: 600; padding: 0 9px !important; }
+.fmt-strip.multi .fmt-bar { gap: 6px; }
+:root[data-theme] .fmt-strip.multi .fmt-bar button { min-height: 32px; padding: 3px 8px; font-size: 12px; }
+
+/* Journée seule : la ligne Vider / Trier / Agenda / ＋ Bloc / i est dans la barre du haut, entre la barre et « Mise en forme » :
+ * même fond que l'ancienne carte, étirée sur toute la largeur, hauteur réduite, bande d'archivage à gauche conservée */
+.day-strip { display: block; }
+.day-strip[hidden] { display: none; }
+.day-strip.day-head { margin: 0; border-radius: 0; box-shadow: none; padding: 4px 10px 4px 8px; }
+.day-strip .actions { margin-top: 0; gap: 6px; flex-wrap: nowrap; }
+.day-strip .actions button { flex: 1 1 auto; min-height: 30px; padding: 2px 8px; font-size: 13px; white-space: nowrap; }
+.day-strip .actions .info-btn { flex: none; width: 24px; height: 24px; min-width: 24px; min-height: 0; padding: 0; font-size: 14px; }
+.day-strip .day-info { margin: 4px 2px 2px; font-size: 12px; }
+/* Ligne Vider → « i » de la barre du haut : +30 % (hauteur des boutons 30 → 39 px, « i » 24 → 31 px, texte agrandi) */
+.day-strip.day-head { padding-block: 5px; }
+.day-strip .actions button { min-height: 39px; padding: 3px 7px; font-size: 15px; }
+.day-strip .actions .info-btn { width: 31px; height: 31px; min-width: 31px; min-height: 0; padding: 0; font-size: 18px; }
+.day-strip .day-info { font-size: 13px; }
+@media (max-width: 340px) { .day-strip .actions { gap: 4px; } .day-strip .actions button { padding: 3px 4px; font-size: 13px; } }
+
+/* 2e clic sur le titre : les boutons de la ligne 1a dans une fenêtre au centre ; fond sous la barre du haut (le titre reste cliquable pour le 3e clic) */
+.bar-pop { position: fixed; left: 0; right: 0; bottom: 0; top: var(--toph, 52px); z-index: 18; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.4); }
+.bar-pop[hidden] { display: none; }
+.bar-pop-card { background: var(--card); color: var(--ink); border-radius: 16px; padding: 14px; width: min(92vw, 420px); max-height: 100%; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+.bp-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 2px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+:root[data-theme] .bp-grid button { min-height: 46px; padding: 6px 10px; border-radius: 12px; background: rgba(127,127,127,.16); color: var(--ink); font-size: 14px; text-align: left; white-space: normal; line-height: 1.2; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.bp-grid button span { margin-right: 6px; }
+:root[data-theme] .bp-grid button.on { background: var(--sbar, var(--gold)); color: #fff; font-weight: 700; }
+:root[data-theme] .bp-grid button.danger { background: rgba(192,57,43,.9); color: #fff; }
+:root[data-theme] .bp-grid button.notheme { color: #5f7d9c; }
+/* fenêtre centrale : centrée sur l'écran entier (le fond commence sous la barre du haut, on compense) */
+.bar-pop { padding-bottom: calc(16px + var(--toph, 52px)); }
+
+/* Journée : la durée d'archivage n'est plus une barre verticale mais un rond cliquable avant « Vider » (couleur = durée ; ouvre la fenêtre durée d'archivage) */
+.day-head .b-keep { flex: none; width: 34px; min-width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center; }
+.day-head .b-keep .kdot { width: 22px; height: 22px; box-shadow: 0 0 0 2px rgba(0,0,0,.18); }
+.day-strip .actions .b-keep { flex: none; }
+.day-strip.day-head { padding-left: 10px; }
+
+/* rond d'archivage → carré, à droite du « i » */
+.day-head .b-keep { border-radius: 8px; }
+.day-head .b-keep .kdot { border-radius: 6px; width: 24px; height: 24px; }
+
+/* Ligne de boutons d'une journée : icônes ⧉ (dupliquer), ↶ ↷ (annuler / rétablir), ☑️ (check-liste) */
+.day-strip .actions .ic, .day-head .actions .ic { flex: none; width: 32px; min-width: 32px; min-height: 39px; padding: 0; font-size: 18px; line-height: 1; }
+.day-head .actions .ic:disabled { opacity: .35; }
+.day-strip .actions { overflow-x: auto; scrollbar-width: none; }
+.day-strip .actions::-webkit-scrollbar { display: none; }
+@media (max-width: 400px) {
+  .day-strip .actions { gap: 4px; }
+  .day-strip .actions .lb { display: none; }
+  .day-strip .actions button { padding: 3px 5px; font-size: 14px; }
+  .day-strip .actions .ic { width: 28px; min-width: 28px; font-size: 17px; padding: 0; }
+  .day-strip .actions .info-btn { width: 28px; height: 28px; min-width: 28px; }
+  .day-head .b-keep { width: 28px; min-width: 28px; }
+  .day-head .b-keep .kdot { width: 22px; height: 22px; }
+}
+
+/* très petits écrans (≤ 340 px) : la ligne défile plutôt que d'écraser les libellés */
+@media (max-width: 340px) { .day-strip .actions button { flex: none; } .day-strip .actions { padding-right: 4px; } }
+
+/* — Ligne de la journée, retouches — */
+/* Vider et Trier réduits */
+.day-strip .actions .b-reset, .day-strip .actions .b-chrono, .day-head .actions .b-reset, .day-head .actions .b-chrono { flex: none; min-height: 32px; padding: 2px 8px; font-size: 13px; }
+/* Annuler / Rétablir : boutons ronds */
+.day-head .actions .b-undo, .day-head .actions .b-redo { width: 34px; min-width: 34px; height: 34px; min-height: 0; border-radius: 50%; font-size: 19px; }
+/* Check-liste : fond vert clair cerclé de vert */
+.day-head .actions .b-check { background: #c9f1d8; box-shadow: inset 0 0 0 2px #2ecc71; border-radius: 10px; }
+/* Duplication : inactif = gris ; actif = clignote (jaune) ; blocs non modifiables mais cliquables */
+.day-head .actions .b-dup.on { animation: dup-blink 1s ease-in-out infinite; box-shadow: inset 0 0 0 2px #e0a800; }
+@keyframes dup-blink { 0%, 100% { background: #ffd54a; } 50% { background: #fff6cf; } }
+@media (prefers-reduced-motion: reduce) { .day-head .actions .b-dup.on { animation: none; background: #ffd54a; } }
+body.dup-mode .bloc { cursor: copy; outline: 2px dashed rgba(0, 0, 0, .35); outline-offset: -3px; }
+body.dup-mode .bloc * { pointer-events: none; }
+body.dup-mode .bloc { -webkit-user-select: none; user-select: none; }
+@media (max-width: 400px) {
+  .day-strip .actions .b-reset, .day-strip .actions .b-chrono { padding: 2px 5px; font-size: 12.5px; }
+  .day-head .actions .b-undo, .day-head .actions .b-redo { width: 30px; min-width: 30px; height: 30px; font-size: 17px; }
+}

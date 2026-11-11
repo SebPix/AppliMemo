@@ -19,30 +19,49 @@
 <body>
   <header class="topbar">
     <div class="top-row">
-      <span id="top-ico" class="top-ico" aria-hidden="true" hidden></span>
-      <h1 id="view-title" role="button" tabindex="0"
-        aria-label="Page précédente — depuis une page racine : accueil (appui long : replier l’en-tête)">MA
+      <button id="top-back" class="top-back" type="button" aria-label="Page précédente" hidden>
+        <span id="top-arrow" class="top-arrow" aria-hidden="true" hidden><svg viewBox="0 0 16 16">
+            <path d="M7 1 L1 8 L7 15 Z" />
+            <path d="M14.5 1 L8.5 8 L14.5 15 Z" />
+          </svg></span>
+        <span id="top-ico" class="top-ico" aria-hidden="true" hidden></span>
+      </button>
+      <h1 id="view-title" role="button" tabindex="0" aria-label="Replier ou déplier l’en-tête">MA
         JOURNÉE</h1>
       <span id="save-state" class="save-state" aria-live="polite"></span>
-      <button id="btn-gear" class="icon-btn gear" aria-label="Préférences">⚙︎</button>
+      <button id="btn-home" class="icon-btn home" aria-label="Accueil" title="Accueil"><svg viewBox="0 0 22 22"
+          aria-hidden="true">
+          <rect x="1.5" y="2" width="19" height="2.8" rx="1.4" />
+          <rect x="1.5" y="7.4" width="19" height="2.8" rx="1.4" />
+          <rect x="1.5" y="12.8" width="19" height="2.8" rx="1.4" />
+          <rect x="1.5" y="18.2" width="19" height="2.8" rx="1.4" />
+        </svg></button>
     </div>
     <div id="top-sub" class="top-sub" hidden></div>
     <div class="top-row2">
       <div id="top-actions" class="top-actions" hidden></div>
-      <div id="fmt-bar" class="fmt-bar" role="toolbar" aria-label="Mise en forme du texte" hidden></div>
-      <i class="vsep"></i>
-      <button id="btn-fmt" class="icon-btn fmt-toggle" aria-label="Afficher la mise en forme du texte"
-        aria-expanded="false">▴</button>
+    </div>
+    <div id="fmt-strip" class="fmt-strip" hidden>
+      <div id="fmt-bar" class="fmt-bar" role="toolbar" aria-label="Mise en forme du texte"></div>
+      <button id="fmt-toggle" class="fmt-toggle" type="button" aria-label="Rétracter la mise en forme du texte"
+        aria-expanded="true">▴</button>
     </div>
     <div id="filter-rows" class="filter-rows" hidden></div>
+    <div id="day-strip" class="day-strip" hidden></div>
     <div id="fmt-pop" class="fmt-pop" hidden></div>
+    <div id="bar-pop" class="bar-pop" hidden>
+      <div class="bar-pop-card" role="dialog" aria-label="Boutons de la page">
+        <div class="bp-title"></div>
+        <div class="bp-grid"></div>
+      </div>
+    </div>
   </header>
 
   <main id="app"></main>
 
   <nav class="tabbar" id="tabbar">
     <button id="tab-add" class="tab-plus" aria-label="Créer"><span>＋</span>Créer</button>
-    <button data-view="journee"><span>📅</span>Journée</button>
+    <button data-view="journee"><span>📅</span>Journées</button>
     <button data-view="afaire"><span>👁️</span>À faire</button>
     <button data-view="checklists"><span>☑️</span>Check-listes</button>
     <button data-view="memos"><span>📝</span>Mémos</button>

@@ -26,10 +26,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   try {
     // --- Démarrage : page MENU d'accueil
     ok(w.location.hash === '#/menu' && $('#view-title').innerText === 'APPLI MEMO / version N° 1.1.5', 'démarrage : page MENU, titre « APPLI MEMO / version N° x.x.x »');
-    ok($$('#app .menu-btn').map(b => b.innerText.trim().replace(/^\S+\s*/, '')).join('|') === 'Journée|À faire|Check-listes|Mémos|Bibliothèque|Accès rapide' && !!$('#app [data-go=reglages]') && $$('#app .menu-btn').every(b => Math.abs(b.offsetWidth - b.offsetHeight) < 3) && $('#menu-add').offsetWidth < 100 && Math.abs($('#menu-add').offsetWidth - $('#app [data-go=reglages]').offsetWidth) < 3, 'MENU : gros boutons pour tous les onglets, Préférences et Créer');
+    ok($$('#app .menu-btn').map(b => b.innerText.trim().replace(/^\S+\s*/, '')).join('|') === 'Journées|À faire|Check-listes|Mémos|Bibliothèque|Accès rapide' && !!$('#app [data-go=reglages]') && $$('#app .menu-btn').every(b => Math.abs(b.offsetWidth - b.offsetHeight) < 3) && $('#menu-add').offsetWidth < 100 && Math.abs($('#menu-add').offsetWidth - $('#app [data-go=reglages]').offsetWidth) < 3, 'MENU : gros boutons pour tous les onglets, Préférences et Créer');
     ok(getComputedStyle($('#tabbar')).display === 'none', 'MENU : barre d\'onglets du bas masquée');
     click('#app [data-go=checklists]'); await wait(60); ok(w.location.hash === '#/checklists' && getComputedStyle($('#tabbar')).display !== 'none', 'MENU › Check-listes : onglets visibles');
-    click('#btn-gear'); await wait(30); ok(w.location.hash === '#/reglages', 'roue crantée : 1 clic = Préférences'); click('#btn-gear'); await wait(60); ok(w.location.hash === '#/menu', 'roue crantée : 2 clics = retour au MENU');
+    click('#btn-home'); await wait(60); ok(w.location.hash === '#/menu', 'bouton à 4 lignes horizontales : retour à l\'accueil');
     const tabs = $$('#tabbar button[data-view]').map(b => b.dataset.view);
     ok(tabs.join() === 'journee,afaire,checklists,memos,biblio', 'barre du bas : Journée, À faire, Check-listes, Mémos, Bibliothèque (dans cet ordre)');
     { // glissement horizontal entre rubriques : MENU → Journée → À faire → Check-listes → Mémos → Bibliothèque → Accès rapide → MENU
@@ -47,7 +47,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(w.location.hash === '#/afaire', 'glissement trop court, trop vertical ou parti du bord gauche : ignoré');
       await go('#/afaire'); const inp = $('#app input[type=search]'); ok(!!inp, 'champ de recherche trouvé'); await swipe(-150, 0, inp); ok(w.location.hash === '#/afaire', 'glissement sur un champ de saisie : ignoré');
       await go('#/journee/' + TODAY); await wait(60);
-      await swipe(-150, 0, $('.day-head')); ok(w.location.hash === '#/afaire', 'depuis une journée ouverte : mène à À faire');
+      await swipe(-150, 0, $('.blocs')); ok(w.location.hash === '#/afaire', 'depuis une journée ouverte : mène à À faire');
       await swipe(150); ok(w.location.hash === '#/journee/' + TODAY, 'retour à Journée : rouvre la dernière journée consultée');
       await go('#/menu'); }
     { // onglet « + » à gauche : menu de création
@@ -55,7 +55,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(first.id === 'tab-add' && first.innerText.includes('＋') && !first.dataset.view, 'onglet « + » : tout à gauche de la barre du bas');
       click('#tab-add'); await wait(40);
       const groups = $$('#sheet .qa-h').map(h => h.textContent.trim());
-      ok(!$('#sheet details') && groups.join('|') === 'Journée|À faire|Check-listes|Mémo', 'menu « + » : liste plate (pas de menus déroulants), titres Journée, À faire, Check-listes, Mémo');
+      ok(!$('#sheet details') && groups.join('|') === 'Journées|À faire|Check-listes|Mémo', 'menu « + » : liste plate (pas de menus déroulants), titres Journées, À faire, Check-listes, Mémo');
       const lab = g => $$(`#sheet .qa-sec[data-g=${g}] [data-qa]`).map(b => b.textContent.trim());
       ok(lab('journee').join('|') === '📅Aujourd’hui|🗓️Date à définir|🧩Journée type', 'menu « + » : Journée › Aujourd\'hui, Date à définir, journée type');
       ok(lab('afaire').length === 6 && ['Urgentissime', 'Urgent', 'Moyen terme', 'Long terme', 'Infini', 'Nouvelle thématique'].every((x, i) => lab('afaire')[i].includes(x)), 'menu « + » : À faire › urgentissime, urgent, moyen terme, long terme, note personnalisée');
@@ -74,7 +74,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       click('#sheet [data-no]');
       w.location.hash = '#/journee'; await wait(100);
     }
-    ok($('#btn-gear').textContent.includes('⚙'), 'roue crantée présente');
+    ok($$('#btn-home svg rect').length === 4, 'bouton d\'accueil : 4 lignes horizontales');
     ok(!txt().includes('Thèmes') || true, '');
 
     // --- Journée : écran d'ouverture à 4 choix
@@ -89,11 +89,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(w.location.hash === '#/journee/' + TODAY && $('#view-title').innerText.includes('Aujourd’hui'), 'Aujourd\'hui : ouvre la journée du jour, nom « Aujourd’hui » dans la barre du haut');
     ok($('#top-sub').textContent.toLowerCase() === w.eval('longDate(todayISO())') && !$('#top-sub').hidden, 'Aujourd\'hui : la date du jour en petit sous le nom (barre du haut)');
     ok(!$('#date-input') && !$('#subtitle') && !$('input[type=date]'), 'ni calendrier ni champ « nom » dans l\'en-tête');
-    ok($$('.day-head .actions button').map(b => b.innerText.replace(/[^\p{L}+]/gu, '').trim()).join('|') === 'Vider|Trier|Agenda|Bloc', 'boutons sous la barre : Vider, Trier, Agenda, + Bloc (+ i si une échéance existe)');
-    const bandc = getComputedStyle($('.day-head')).borderLeftColor;
+    ok($$('.day-head .actions button:not(.b-keep):not(.info-btn)').map(b => b.getAttribute('aria-label') || b.innerText.trim()).join('|') === 'Vider|Trier par horaire|Dupliquer un bloc (actif / inactif)|＋ Bloc|Annuler|Rétablir|Insérer une check-liste', 'boutons sous la barre : Vider, Trier, ⧉ dupliquer, + Bloc, ↶ annuler, ↷ rétablir, ☑ check-liste (+ i si une échéance existe, + rond d\'archivage) ; l\'Agenda est dans la lucarne');
+    const bandc = getComputedStyle($('.day-head .kdot')).backgroundColor;
     const rgbOf = c => (c.startsWith('color(') ? c.match(/[\d.]+/g).slice(-3).map(v => v * 255) : c.match(/\d+/g).map(Number));
     const near = (a, b) => { const x = rgbOf(a), y = rgbOf(b); return Math.abs(x[0] - y[0]) < 40 && Math.abs(x[1] - y[1]) < 40 && Math.abs(x[2] - y[2]) < 40; };
-    ok(bandc === 'rgb(149, 165, 166)', 'barre latérale grise (1 semaine)');
+    ok(bandc === 'rgb(149, 165, 166)', 'rond d\'archivage gris (1 semaine)');
 
     // --- Journée : bloc + hashtag
     click('#b-add'); await wait(50);
@@ -102,27 +102,33 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     click('.bloc [data-act=toggle]'); await wait(30);
     ok(!!$('.bloc .rte'), 'bloc : la flèche le déroule');
     typeRte('.bloc .rte', 'Préparer le point #Projet-Alpha avec Marc');
-    // texte enrichi : barre de mise en forme dépliable (▾), HTML nettoyé + texte brut conservé
-    ok($('#fmt-bar').hidden && $('#btn-fmt').textContent === '▴', 'mise en forme : barre repliée par défaut, flèche orientée vers le haut');
-    ok($('#top-actions').parentElement.classList.contains('top-row2') && $('#top-actions').parentElement.lastElementChild === $('#btn-fmt') && $('#btn-fmt').previousElementSibling.classList.contains('vsep'), 'mise en forme : boutons sous le titre, flèche à droite de la ligne après une barre de séparation');
-    click('#btn-fmt'); ok($('#top-actions').hidden && $('#btn-fmt').textContent === '▾', 'mise en forme : à l\'appui, les boutons sont remplacés, flèche vers le bas'); ok(!$('#fmt-bar').hidden && ['Gras', 'Italique', 'Taille', 'Couleur', 'Surlignage', 'Alignement', 'Puces'].every(x => $('#fmt-bar').innerText.includes(x)), 'mise en forme : la flèche déploie la barre (gras, italique, taille, couleur, surlignage, alignement, puces)');
+    // texte enrichi : 1a puis 1b se déroulent par des clics sur le titre (rien au départ, plus de flèche ▴)
+    ok($('#top-actions').hidden && !$('#btn-fmt') && !$('#fmt-strip').hidden && getComputedStyle($('#fmt-strip')).display !== 'none', 'mise en forme : bande sous la barre du haut, visible d\'office dès qu\'il y a un texte à remplir (plus dans la ligne 1b, plus de flèche ▴)');
+    click('#view-title'); ok(!$('#bar-pop').hidden && $('#top-actions').hidden && !$('#fmt-strip').hidden, 'titre : 1 clic = la lucarne (fenêtre centrale) s\'ouvre, plus de ligne de boutons sous le titre ; la bande de mise en forme reste en place');
+    ok(['Gras', 'Italique', 'Taille', 'Couleur', 'Surlignage', 'Alignement', 'Puces'].every(x => $('#fmt-bar').innerText.includes(x)) && !$('.top-row2').contains($('#fmt-bar')), 'mise en forme : gras, italique, taille, couleur, surlignage, alignement, puces — hors de la barre du haut');
     $('.bloc .rte').focus(); { const r = d.createRange(); r.selectNodeContents($('.bloc .rte')); const sel = w.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
     await wait(30); click('#fmt-bar [data-c=bold]'); await wait(30);
     ok(/<b>|font-weight/.test(S().days[S().current].blocs[0].html || ''), 'mise en forme : « Gras » enregistre le HTML du bloc (' + (S().days[S().current].blocs[0].html || '') + ')');
     ok(S().days[S().current].blocs[0].texte.includes('#Projet-Alpha'), 'mise en forme : le texte brut (#thème) reste intact');
     click('#fmt-bar [data-c=color]'); ok(!$('#fmt-pop').hidden && $$('#fmt-pop .sw').length >= 5, 'mise en forme : palette de couleurs'); click('#fmt-pop .sw'); await wait(30);
     ok(/color/.test(S().days[S().current].blocs[0].html || ''), 'mise en forme : couleur appliquée');
-    click('#btn-fmt'); ok($('#fmt-bar').hidden && !$('#top-actions').hidden && $('#btn-fmt').textContent === '▴', 'mise en forme : la flèche ramène les boutons à leur place');
-    { // titre cliquable : 1 sans la 1re carte, 2 sans la ligne de boutons, 3 retour (1), 4 affichage complet
-      const vis = s => { const e = $(s); return !!e && getComputedStyle(e).display !== 'none'; }, first = () => d.querySelector('#app > :first-child');
-      const seq = []; for (let i = 0; i < 4; i++) { await lp(); await wait(20); seq.push((getComputedStyle(first()).display === 'none' ? 'c' : '-') + (vis('.top-row2') ? 'r' : '-')); }
-      ok(seq.join() === 'cr,c-,cr,-r', 'titre cliquable : 1er appui masque la 1re carte, 2e masque aussi la ligne sous le titre, 3e revient, 4e affichage complet (' + seq.join() + ')');
+    { // rétracter / déplier la bande de mise en forme
+      const sh = () => getComputedStyle($('#fmt-bar')).display !== 'none';
+      ok(sh(), 'bande de mise en forme : dépliée par défaut');
+      click('#fmt-toggle'); await wait(20); ok(!sh() && $('#fmt-strip').classList.contains('retracted') && $('#fmt-toggle').innerText.includes('Mise en forme'), 'bande de mise en forme : le bouton la rétracte (fine ligne « Mise en forme ▾ »)');
+      click('#fmt-toggle'); await wait(20); ok(sh(), 'bande de mise en forme : le bouton la déplie');
+      const st = () => ($('#bar-pop').hidden ? 'fermee' : 'lucarne');
+      const seq = [st()]; for (let i = 0; i < 3; i++) { click('#view-title'); await wait(20); seq.push(st()); }
+      ok(seq.join() === 'lucarne,fermee,lucarne,fermee', 'clics sur le titre : la lucarne s\'ouvre / se referme (' + seq.join() + ')');
+      click('#view-title'); await wait(20); click('#bar-pop'); await wait(20);
+      ok($('#bar-pop').hidden, 'lucarne : un clic en dehors la ferme');
+      click('#view-title'); await wait(20); ok(['Archive', 'Agenda'].every(x => $('#bar-pop').innerText.includes(x)), 'lucarne : les boutons de la page (dont Archive et Agenda)'); click('#bar-pop'); await wait(20);
     }
     click('.bloc [data-act=toggle]'); await wait(30);
     ok(!$('.bloc .rte'), 'bloc : se rétracte de nouveau');
     ok(S().days[S().current].blocs.length === 1 && S().days[S().current].blocs[0].texte.includes('#Projet-Alpha'), 'journée : bloc créé et texte enregistré');
     const bar = $('#top-actions').innerText;
-    ok(['Sauvegarder', 'Versions', 'Journées types', 'Définir comme type', 'PDF', 'Archive'].every(x => bar.includes(x)), 'journée : barre du haut sur le modèle de À faire (+ Archive)');
+    ok(['Archiver', 'Bibliothèque', 'Journées types', 'Définir comme type', 'PDF', 'Archive'].every(x => bar.includes(x)), 'journée : barre du haut sur le modèle de À faire (+ Archive)');
     ok(S().days[TODAY].keep === 'week', 'journée du jour : grise (1 semaine) par défaut');
     ok(!$('#top-actions').innerText.includes('Listes types'), 'journée : « Journées types » (pas « Listes types »)');
 
@@ -136,36 +142,30 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     click('#app [data-lvl=urgent]'); await wait(100);
     const TNid = S().notes.find(n => n.type === 'todo').id, TNn = () => S().notes.find(n => n.id === TNid);
     ok(!$('#sheet form') && TNn().data.level === 'urgent' && TNn().title === 'Urgent' && w.location.hash === '#/note/' + TNid, 'À faire : une case ouvre directement la note du niveau (aucun nom demandé)');
-    ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Toutes') && !$('#top-actions').innerText.includes('Sauvegarder'), 'À faire : 1a = thématiques (plus de Sauvegarder / PDF…)');
+    ok($('#top-actions').innerText.includes('Toutes') && !$('#top-actions').innerText.includes('Archiver'), 'À faire : 1a = thématiques (plus de Sauvegarder / PDF…)');
     for (const t of ['Appeler Paul', 'Acheter du pain']) { type('#todo-new', t); submit($('#todo-form')); }
     ok(TNn().data.items.length === 2 && TNn().data.items[0].t === 'Acheter du pain', 'À faire : 2 tâches dans la note, la plus récente en haut');
     { const h = $('.card.todo').getBoundingClientRect().height; ok(h > 0 && h <= 40, 'À faire : tâches compactes (' + Math.round(h) + 'px)'); }
-    { // lignes 1a (boutons) / 1b (mise en forme) : la flèche n'existe que si les deux existent
+    { // lignes 1a (boutons) / 1b (mise en forme) : déroulées par les clics sur le titre ; 1b n'existe que s'il y a un texte à remplir
       const vis = s => { const e = $(s); return !!e && getComputedStyle(e).display !== 'none'; };
       await wait(60);
-      ok(vis('#top-actions') && !vis('#fmt-bar') && !vis('#btn-fmt'), 'lignes : À faire sans texte à remplir → 1a seule, pas de flèche');
+      ok(!vis('.top-row2') && !$('#btn-fmt') && !vis('#fmt-strip') && !vis('#bar-pop'), 'lignes : au départ rien sous le titre ; pas de texte à remplir → pas de bande de mise en forme');
+      click('#view-title'); await wait(30);
+      ok(vis('#bar-pop') && !vis('#fmt-strip'), 'lucarne : À faire sans texte à remplir → le clic ouvre la lucarne, pas de bande de mise en forme');
+      click('#bar-pop'); await wait(20);
       click('.todo [data-arrow]'); await wait(80);
-      ok(vis('#btn-fmt') && vis('#top-actions') && !vis('#fmt-bar'), 'lignes : détail de tâche ouvert → 1b disponible, flèche apparue, 1a par défaut');
-      click('#btn-fmt'); ok(vis('#fmt-bar') && !vis('#top-actions') && $('#btn-fmt').textContent === '▾', 'lignes : flèche → 1b remplace 1a');
+      // (détail ouvert : un texte à remplir existe → la bande de mise en forme apparaît d'office)
+      ok(vis('#fmt-strip') && vis('#fmt-bar') && !vis('#top-actions'), 'lignes : détail de tâche ouvert → la bande de mise en forme apparaît d\'office sous la barre');
       click('.todo [data-arrow]'); await wait(80);
-      ok(vis('#top-actions') && !vis('#fmt-bar') && !vis('#btn-fmt'), 'lignes : détail refermé → 1b indisponible, retour à 1a, flèche disparue');
-      let n0 = 0; const st = () => (getComputedStyle(d.querySelector('#app > :first-child')).display === 'none' ? 'c' : '-') + (vis('.top-row2') ? 'r' : '-');
-      const seq2 = [st()]; for (let i = 0; i < 4; i++) { await lp(); await wait(20); seq2.push(st()); }
-      ok(seq2.join() === '-r,cr,c-,cr,-r', 'titre : 4 appuis → carte masquée, ligne masquée, retour, complet (' + seq2.join() + ')');
-      { // titre : un clic ouvre la page MENU d'accueil (la roue ⚙︎ garde ses 2 usages)
-        const back = w.location.hash;
+      ok(!vis('#top-actions') && !vis('#fmt-strip'), 'lignes : détail refermé → la bande de mise en forme disparaît');
+      { const back = w.location.hash;
         click('#view-title'); await wait(60);
-        ok(w.location.hash === '#/menu', 'titre : un clic ouvre la page MENU d\'accueil');
-        w.location.hash = back; await wait(100);
-        await go('#/reglages'); click('#view-title'); await wait(60);
-        ok(w.location.hash === '#/menu', 'titre « PRÉFÉRENCES » : un clic ramène au MENU');
-        w.location.hash = back; await wait(100);
-        ok(!d.body.hasAttribute('data-hide-card'), 'titre : le clic ne replie plus l\'en-tête');
+        ok(w.location.hash === back, 'titre : un clic ne change plus de page');
       }
       await go('#/biblio'); await wait(60);
-      ok(!vis('.top-row2') && !vis('#btn-fmt'), 'lignes : page sans bouton ni texte à remplir → seule la ligne titre');
-      const s3 = [st()]; await lp(); await wait(20); s3.push(st()); await lp(); await wait(20); s3.push(st());
-      ok(s3.join() === '--,c-,--', 'titre : sans ligne 1a/1b, un appui masque la carte, le suivant la rétablit (aucun clic inutile) (' + s3.join() + ')');
+      ok(!vis('.top-row2'), 'lignes : page sans bouton ni texte à remplir → seule la ligne titre');
+      click('#view-title'); await wait(30);
+      ok(!vis('.top-row2'), 'titre : sans ligne 1a/1b, un clic ne fait rien');
       await go('#/note/' + TNid); await wait(60);
     }
     click('.todo [data-arrow]'); await wait(50);
@@ -234,7 +234,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!$('#sheet form') && nowN && nowN.title === 'NOW' && w.location.hash === '#/note/' + nowN.id, 'À faire : la case NOW ouvre directement la note NOW');
       await go('#/afaire'); click('#app [data-lvl=urgentissime]'); await wait(100);
       ok(S().notes.filter(n => n.type === 'todo' && n.data.level === 'urgentissime').length === 1, 'À faire : une seule note par niveau');
-      ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Insérer une Check-liste'), 'NOW : bouton « Insérer une Check-liste » en ligne 1a');
+      ok($('#top-actions').innerText.includes('Insérer une Check-liste'), 'NOW : bouton « Insérer une Check-liste » en ligne 1a');
       const impN = w.eval("(() => { const x = newNote('checklist', 'Import test'); x.data.items = [{ id: 'ia', t: 'A', done: false }, { id: 'ib', t: 'B', done: true }]; save(); return x; })()"); w.eval('render()'); await wait(40);
       click($$('#top-actions button').find(b => b.innerText.includes('Check-liste'))); await wait(40);
       ok($('#sheet').innerText.includes('Insérer une check-liste'), 'NOW : fenêtre « insérer une check-liste »');
@@ -294,7 +294,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const mk = async (type, name) => { await go('#/memos'); click('#tab-add'); click(`#sheet [data-qa=m-${type}]`); const f2 = $('#sheet form'); f2.elements.v.value = name; submit(f2); await wait(120); };
     await go('#/checklists'); click('#cl-new'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Valise'; submit(f2); } await wait(120);
     ok(w.location.hash.startsWith('#/note/') && $('#view-title').textContent === 'CHECK-LISTES', 'check-liste créée ; titre du bandeau « CHECK-LISTES »');
-    ok(!$('#top-actions').hidden && ['PDF', 'Définir comme type', 'Archive'].every(x => $('#top-actions').innerText.includes(x)) && ['Renommer', 'Dupliquer', 'Supprimer', 'Sauvegarder', 'Versions', 'Listes types'].every(x => !$('#top-actions').innerText.includes(x)), 'check-liste : le bandeau ne garde que Archive / PDF / Définir comme type');
+    ok(['PDF', 'Définir comme type', 'Archive'].every(x => $('#top-actions').innerText.includes(x)) && ['Renommer', 'Dupliquer', 'Supprimer', 'Archiver', 'Bibliothèque', 'Listes types'].every(x => !$('#top-actions').innerText.includes(x)), 'check-liste : le bandeau ne garde que Archive / PDF / Définir comme type');
     ok(!$('[data-na=dup]'), 'mémos : plus de boutons Dupliquer/PDF/Supprimer dans la page');
     ok($('#tabbar .on').dataset.view === 'checklists', 'onglet Check-listes actif sur une check-liste');
     { const here = w.location.hash; click('#tabbar [data-view=journee]'); await wait(60); click('#tabbar [data-view=checklists]'); await wait(60);
@@ -354,11 +354,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'template'), 'check-liste : définie comme liste type');
     await go('#/checklists');
     ok(!$('#cl-new').closest('.row') && $('#cl-new').offsetWidth < 140 && $('#cl-tpl').innerText.includes('Listes types') && Math.abs($('#cl-new').offsetHeight - $('#cl-new').offsetWidth) < 12, 'racine : 2 boutons carrés « Nouvelle check-liste » et « Listes types »');
-    ok(!!$('#cl-all') && $$('[data-act]').map(b => b.innerText.replace(/[^\p{L}]/gu, '')).join('|') === 'Renommer|Dupliquer|Supprimer|Sauvegarder|Versions', 'racine : sélection + Renommer / Dupliquer / Supprimer / Sauvegarder / Versions');
+    ok(!!$('#cl-all') && $$('[data-act]').map(b => b.innerText.replace(/[^\p{L}]/gu, '')).join('|') === 'Renommer|Dupliquer|Supprimer|Archiver|Bibliothèque', 'racine : sélection + Renommer / Dupliquer / Supprimer / Sauvegarder / Versions');
     const li = () => $$('#cl-list .cl-li').find(e => e.innerText.includes('Valise') && !e.innerText.includes('copie'));
     click(li().querySelector('[data-sel]')); await wait(20);
     click('[data-act=save]'); { const f2 = $('#sheet form'); f2.elements.v.value = 'Avant'; submit(f2); } await wait(30);
-    ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'version' && l.ref === CL().id), 'racine : Sauvegarder → version liée à la liste cochée');
+    ok(S().lists.some(l => l.scope === 'checklist' && l.kind === 'version' && l.ref === CL().id), 'racine : Archiver → version liée à la liste cochée');
     click('[data-act=dup]'); await wait(80);
     ok(S().notes.some(n => n.title === 'Valise (copie)' && n.data.items.length === 28 && n.data.items[0].id !== CL().data.items[0].id), 'racine : Dupliquer');
     click($('#cl-all')); await wait(20); ok($$('#cl-list [data-sel]').every(c => c.checked), 'racine : tout sélectionner');
@@ -380,14 +380,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok(S().notes.at(-1).title === 'Mémo Vélo', 'mémo divers nommé « Mémo Vélo »');
     typeRte('#n-body .rte', 'Changer les pneus #Sport et graisser la chaîne'); await wait(600);
     ok($('#n-tags').innerText.includes('#Sport'), 'note : le # est détecté et affiché');
-    { const sb = $('#top-sub'), shown = () => !sb.hidden && getComputedStyle(sb).display !== 'none';
-      ok(!shown(), 'nom sous le titre : masqué tant que la carte d\'en-tête est visible');
-      await lp(); await wait(30);
-      ok(shown() && sb.textContent === 'Mémo Vélo' && sb.classList.contains('k-never') && getComputedStyle(sb).color !== 'rgb(0, 0, 0)' && parseFloat(getComputedStyle(sb).fontSize) < 14, 'nom sous le titre : carte repliée → « Mémo Vélo » en petit, couleur de sa durée d\'archivage (rouge par défaut)');
-      { const cl = sb.className, cs = ['never', 'year', 'month', 'week'].map(k => { sb.className = 'top-sub k-' + k; return getComputedStyle(sb).color; }); sb.className = cl;
-        ok(new Set(cs).size === 4, 'nom sous le titre : une couleur par durée d\'archivage (rouge, orange, bleu, gris) : ' + cs.join(' | ')); }
-      await lp(); await wait(30); await lp(); await wait(30); await lp(); await wait(30);
-      ok(!shown(), 'nom sous le titre : disparaît au retour de la carte');
+    { const sb = $('#top-sub');
+      ok($('#view-title').innerText.includes('Mémo Vélo') && !$('#n-title') && !!$('#n-fav') && !!$('#view-title .tt-pen'), 'mémo : le nom, le stylo ✏️ et le favori ★ sont dans la barre du haut (plus de champ de nom dans la page)');
+      ok(!sb.hidden && sb.textContent === 'Mémo divers', 'mémo : le type (« Mémo divers ») est écrit sous le nom');
+      const f0 = S().notes.at(-1).fav; click('#n-fav'); await wait(30); ok(S().notes.at(-1).fav === !f0, 'mémo : l\'étoile de la barre du haut bascule le favori');
     }
     ok(!$('[data-na]') && ['Dupliquer', 'PDF', 'Supprimer'].every(x => $('#top-actions').innerText.includes(x)), 'mémo divers : Dupliquer / PDF / Supprimer dans la ligne 1a, plus dans la page');
 
@@ -491,16 +487,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // --- Journée : sauvegarde (durée demandée), versions, journée type
     await go('#/journee/' + TODAY);
-    click(topBtn0('Sauvegarder')); await wait(30);
+    click(topBtn0('Archiver')); await wait(30);
     ok($$('#sheet input[type=radio]').length === 5 && $('#sheet input[type=radio]:checked').value === 'week', 'sauvegarde : la durée est demandée, grise (1 semaine) cochée par défaut');
     { const f2 = $('#sheet form'); f2.elements.v.value = 'Journée V1'; f2.elements.k.value = 'year'; submit(f2); } await wait(100);
     ok(S().lists.some(l => l.scope === 'day' && l.kind === 'version' && l.name === 'Journée V1' && l.keep === 'year' && l.ref === TODAY && l.items.length === 1 && l.items[0].titre === 'Réunion équipe'), 'journée sauvegardée : version orange (1 année), contenu des blocs');
-    ok(S().days[TODAY].keep === 'year' && getComputedStyle($('.day-head')).borderLeftColor === 'rgb(230, 126, 34)', 'journée sauvegardée : la journée prend la durée choisie (bandeau orange)');
+    ok(S().days[TODAY].keep === 'year' && getComputedStyle($('.day-head .kdot')).backgroundColor === 'rgb(230, 126, 34)', 'journée archivée : la journée prend la durée choisie (rond orange)');
     click(topBtn0('Définir comme type')); { const f2 = $('#sheet form'); f2.elements.v.value = 'Journée réunion'; submit(f2); } await wait(50);
     ok(S().lists.some(l => l.scope === 'day' && l.kind === 'template' && l.name === 'Journée réunion' && l.keep === 'never' && l.items.length === 1), 'journée type définie (modèle en illimité)');
     w.eval("live(day().blocs).forEach(kill); render()"); await wait(60);
     ok(txt().includes('Aucun bloc'), 'journée vidée');
-    click(topBtn0('Versions')); await wait(30); ok($('#sheet').innerText.includes('Journée V1') && $('#sheet').innerText.includes('1 bloc'), 'versions de la journée listées');
+    click(topBtn0('Bibliothèque')); await wait(30); ok($('#sheet').innerText.includes('Journée V1') && $('#sheet').innerText.includes('1 bloc'), 'versions de la journée listées');
     click('#sheet [data-load]'); await wait(80);
     ok(txt().includes('Réunion équipe') || $('.bloc input.titre')?.value === 'Réunion équipe', 'ancienne version de la journée rechargée');
     await go('#/journee'); await wait(30);
@@ -521,18 +517,18 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const pickKeep = async k => { click('#sheet [data-k=' + k + ']'); await wait(60); };
     await go('#/journee/' + TODAY);
     w.eval("setKeep(day(), 'week'); render()"); await wait(40);   // retour à la valeur par défaut (la sauvegarde ci-dessus l'avait passée à 1 année)
-    ok(bc('.day-head') === RGB.week && bw('.day-head') >= 6, 'journée : bandeau vertical gris par défaut');
+    ok(getComputedStyle($('.day-head .kdot')).backgroundColor === RGB.week && !!$('.day-head .b-keep'), 'journée : rond d\'archivage gris par défaut (plus de barre verticale)');
     ok(topBtn('Archive : 1 semaine'), 'journée : bouton « Archive » dans le bandeau du haut');
-    click(topBtn('Archive')); await wait(30);
+    click(topBtn('Archive :')); await wait(30);
     ok($$('#sheet [data-k]').map(b => b.dataset.k).join() === 'never,year,month,week,ondemand' && ['Illimitée', '1 année', '1 mois', '1 semaine', 'À la demande'].every(x => $('#sheet').innerText.includes(x)), 'fenêtre : 5 durées (illimitée, année, mois, semaine, à la demande)');
     await pickKeep('month');
-    ok(S().days[S().current].keep === 'month' && bc('.day-head') === RGB.month && topBtn('Archive : 1 mois') && txt().includes('Effacé le'), 'journée : 1 mois → bleu, date d\'effacement affichée');
+    ok(S().days[S().current].keep === 'month' && getComputedStyle($('.day-head .kdot')).backgroundColor === RGB.month && topBtn('Archive : 1 mois') && txt().includes('Effacé le'), 'journée : 1 mois → bleu, date d\'effacement affichée');
     const note = S().notes.find(n => n.title === 'Mémo Vélo');
     await go('#/note/' + note.id);
     ok(bc('.note-head') === RGB.never && topBtn('Archive : Illimitée'), 'note : rouge par défaut + bouton dans le bandeau');
-    for (const k of ['year', 'month', 'week', 'never']) { click(topBtn('Archive')); await pickKeep(k); ok(S().notes.find(n => n.id === note.id).keep === k && bc('.note-head') === RGB[k], `note : ${k} → bandeau ${k === 'never' ? 'rouge' : k === 'year' ? 'orange' : k === 'month' ? 'bleu' : 'gris'}`); }
+    for (const k of ['year', 'month', 'week', 'never']) { click(topBtn('Archive :')); await pickKeep(k); ok(S().notes.find(n => n.id === note.id).keep === k && bc('.note-head') === RGB[k], `note : ${k} → bandeau ${k === 'never' ? 'rouge' : k === 'year' ? 'orange' : k === 'month' ? 'bleu' : 'gris'}`); }
     { // « À la demande » : 2e fenêtre « Proposer la suppression », pastille arc-en-ciel, proposition à l'échéance
-      click(topBtn('Archive')); click('#sheet [data-k=ondemand]'); await wait(60);
+      click(topBtn('Archive :')); click('#sheet [data-k=ondemand]'); await wait(60);
       ok($('#sheet').innerText.includes('Proposer la suppression') && $$('#sheet [data-p]').map(b => b.innerText.split('\n')[0].trim()).join('|') === 'Demain|Dans 1 semaine|Dans 1 mois|Dans 1 an', 'à la demande : fenêtre « Proposer la suppression » avec demain / 1 semaine / 1 mois / 1 an');
       ok(getComputedStyle($('#sheet .kdot')).backgroundImage.includes('conic-gradient'), 'à la demande : pastille arc-en-ciel');
       click('#sheet [data-p="1"]'); await wait(60);
@@ -554,10 +550,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok($('#sheet').innerText.includes('Jetable'), 'à la demande : la fenêtre nomme l\'élément à supprimer');
       click('#sheet [data-del]'); await wait(80);
       ok(!!S().notes.find(n => n.id === tid).deletedAt && !S().notes.find(n => n.id === note.id).deletedAt, 'à la demande : « Supprimer » efface seulement l\'élément concerné');
-      click(topBtn('Archive')); await pickKeep('never');
+      click(topBtn('Archive :')); await pickKeep('never');
     }
     await go('#/note/' + S().notes.find(n => n.title === 'Valise').id);
-    ok(topBtn('Archive') && topBtn('PDF') && !topBtn('Dupliquer') && !topBtn('Sauvegarder'), 'check-liste : Archive, PDF (plus de Dupliquer / Sauvegarder dans le bandeau)');
+    ok(topBtn('Archive :') && topBtn('PDF') && !topBtn('Dupliquer') && !topBtn('Archiver'), 'check-liste : Archive, PDF (plus de Dupliquer / Archiver dans le bandeau)');
     await go('#/memos'); ok($$('a.lrow.kc').length > 0 && $$('a.lrow.kc').every(a => Object.values(RGB).includes(getComputedStyle(a).borderLeftColor)), 'liste des mémos : bandeaux colorés');
     ok($$('#app a.card.item.lrow').length > 0 && $$('#app a.card.item.lrow').every(a => !a.querySelector('.meta') && a.querySelectorAll('span').length === 2), 'mémos : favoris et récents n\'affichent que le titre (pas de texte à droite)');
     w.eval('libSelect = false; libSel.clear()'); await go('#/biblio'); ok($$('#lib-body a.lrow.kc').length >= 3 && $$('#lib-body a.lrow.kc').every(a => Object.values(RGB).includes(getComputedStyle(a).borderLeftColor)), 'bibliothèque : bandeaux colorés sur les lignes');
@@ -575,7 +571,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!!$('#tabbar [data-view=biblio] .pg') && $('#tabbar [data-view=biblio] .pg').textContent === '2/2' && $('#tabbar [data-view=biblio]').innerText.includes('Accès rapide') && !$('#view-pager'), 'onglet : « 2/2 » à côté de l\'icône (pas dans la barre jaune), nom « Accès rapide »');
       ok(!!$('#view-title [data-vt=full]') && !!$('#view-title [data-vt=short].on') && !$('#view-title [data-vt=full].on') && $('.top-row2').hidden, 'Accès rapide : « Liste complète » et « Liste réduite » à droite du titre, réduite en surbrillance, pas de ligne 1a');
       click('#view-title [data-vt=full]'); await wait(60);
-      ok(!!$('#full-q') && $$('#app a.lrow').length > 1 && !!$('#view-title [data-vt=full].on') && !$('#top-actions').hidden && ['Catégorie', 'Durabilité', 'Thématique', 'Tri'].every(x => $('#top-actions').innerText.includes(x)) && !!$('#top-actions .filt-reset'), 'Accès rapide : « Liste complète » → toutes les notes + recherche, ligne 1a avec filtres (catégorie, durabilité, thématique, tri) et ↺ à droite');
+      ok(!!$('#full-q') && $$('#app a.lrow').length > 1 && !!$('#view-title [data-vt=full].on') && ['Catégorie', 'Durabilité', 'Thématique', 'Tri'].every(x => $('#top-actions').innerText.includes(x)) && !!$('#top-actions .filt-reset'), 'Accès rapide : « Liste complète » → toutes les notes + recherche, ligne 1a avec filtres (catégorie, durabilité, thématique, tri) et ↺ à droite');
       { const nb0 = $$('#full-list a.lrow').length; click($$('#top-actions button').find(b => b.innerText.includes('Catégorie'))); await wait(40);
         ok(!$('#filter-rows').hidden && $$('#filter-rows .fchip').length > 1, 'Catégorie : les propositions se déploient sur une ligne en dessous (barre jaune)');
         click($('#filter-rows .fchip')); await wait(40); const nb1 = $$('#full-list a.lrow').length;

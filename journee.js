@@ -4,7 +4,7 @@
 const tagChips = (text, max = 6) => Core.extractTags(text).slice(0, max)
   .map(t => `<a class="chip" href="#/tag/${encodeURIComponent(t.key)}">#${esc(t.label)}</a>`).join('');
 
-/* ===================== MA JOURNÉE ===================== */
+/* ===================== JOURNÉES / PLANNING ===================== */
 const infoDays = new Set();   // journées dont l'info d'échéance (bouton « i ») est affichée
 let lastInfoView = null;
 let sessionDay = null;   // dernière journée ouverte pendant cette session (lien « Reprendre »)
@@ -89,24 +89,35 @@ const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
 const dayName = d => d.subtitle || (d.date === todayISO() ? 'Aujourd’hui' : capFirst(longDate(d.date)));
 /** Journée seule : le titre (icône + nom ✏️) et la date sont dans la barre du haut ; sous la barre il ne reste que les boutons (Vider, Trier, Agenda, ＋ Bloc, i).
  *  Dans le planning, chaque journée garde en plus son titre (nom, ✏️, ✕) puisqu'il y en a plusieurs sur la page. */
+/** Ligne de boutons d'une journée : Vider · Trier · Agenda · ＋ Bloc · « i » (+ le texte d'échéance en dessous). */
+function dayActionsHTML(d, planning) {
+  const idf = n => (planning ? '' : `id="${n}"`), info = infoDays.has(d.date), k = keepOf(d), h = hist(d.date);
+  return `<div class="row actions">
+        <button class="btn-red b-reset" ${idf('b-reset')}>Vider</button>
+        <button class="b-chrono" ${idf('b-chrono')} title="Trier par horaire" aria-label="Trier par horaire">🕒<span class="lb"> Trier</span></button>
+        <button class="ic b-dup ${dupMode ? 'on' : ''}" ${idf('b-dup')} aria-pressed="${dupMode}" aria-label="Dupliquer un bloc (actif / inactif)" title="Dupliquer : actif ↔ inactif. Actif (clignote) : touche un bloc pour le dupliquer juste en dessous">⧉</button>
+        <button class="btn-green b-add" ${idf('b-add')}>＋ Bloc</button>
+        <button class="ic b-undo" ${idf('b-undo')} data-date="${d.date}" aria-label="Annuler" title="Annuler" ${h.undo.length ? '' : 'disabled'}>↶</button>
+        <button class="ic b-redo" ${idf('b-redo')} data-date="${d.date}" aria-label="Rétablir" title="Rétablir" ${h.redo.length ? '' : 'disabled'}>↷</button>
+        <button class="ic b-check" ${idf('b-check')} aria-label="Insérer une check-liste" title="Insérer une check-liste (nouveau bloc)">☑️</button>
+        ${expiryLabel(d) ? `<button class="info-btn b-info ${info ? 'on' : ''}" ${idf('b-info')} aria-label="Afficher ou masquer les informations de suppression" aria-pressed="${info}" title="Informations">i</button>` : ''}
+        <button type="button" class="b-keep" ${idf('b-keep')} aria-label="Durée d’archivage : ${esc(KEEP[k].short)}" title="Durée d’archivage : ${esc(KEEP[k].short)}"><i class="kdot k-${k}"></i></button>
+      </div>
+      ${expiryLabel(d) ? `<p class="meta day-info" ${idf('day-info')} ${info ? '' : 'hidden'}>${esc(expiryLabel(d))}</p>` : ''}`;
+}
+/** Journée seule : la ligne de boutons est dans la barre du haut (#day-strip, entre la barre et « Mise en forme ») ; la page ne contient que les blocs.
+ *  Dans le planning, chaque journée garde son en-tête (nom, ✏️, ✕) et sa ligne de boutons dans la page, puisqu'il y en a plusieurs. */
 function dayHTML(d, planning, canRemove) {
-  const isToday = d.date === todayISO(), idf = n => (planning ? '' : `id="${n}"`), info = infoDays.has(d.date);
+  const isToday = d.date === todayISO(), idf = n => (planning ? '' : `id="${n}"`);
   const bd = !planning && typeof upcomingBirthdays === 'function' ? upcomingBirthdays(7) : [];
-  return `
-    <section class="day-head ${keepClass(d)}" data-date="${d.date}">
-      ${planning ? `<div class="day-title-row"><h2 class="day-title">${esc(dayName(d))}</h2>
+  return `${planning ? `
+    <section class="day-head" data-date="${d.date}">
+      <div class="day-title-row"><h2 class="day-title">${esc(dayName(d))}</h2>
         <button class="icon-btn b-rename" aria-label="Modifier le nom de la journée" title="Modifier le nom">✏️</button>
         ${canRemove ? `<button class="icon-btn b-remove" aria-label="Retirer cette journée du planning" title="Retirer du planning">✕</button>` : ''}</div>
-      ${isToday || d.subtitle ? `<p class="date-label">${esc(longDate(d.date))}</p>` : ''}` : ''}
-      <div class="row actions">
-        <button class="btn-red b-reset" ${idf('b-reset')}>Vider</button>
-        <button class="b-chrono" ${idf('b-chrono')} title="Trier par horaire">🕒 Trier</button>
-        <button class="b-cal" ${idf('b-cal')} title="Google Agenda">${d.cal ? '📆✓' : '📆'} Agenda</button>
-        <button class="btn-green b-add" ${idf('b-add')}>＋ Bloc</button>
-        ${expiryLabel(d) ? `<button class="info-btn b-info ${info ? 'on' : ''}" ${idf('b-info')} aria-label="Afficher ou masquer les informations de suppression" aria-pressed="${info}" title="Informations">i</button>` : ''}
-      </div>
-      ${expiryLabel(d) ? `<p class="meta day-info" ${idf('day-info')} ${info ? '' : 'hidden'}>${esc(expiryLabel(d))}</p>` : ''}
-    </section>
+      ${isToday || d.subtitle ? `<p class="date-label">${esc(longDate(d.date))}</p>` : ''}
+      ${dayActionsHTML(d, true)}
+    </section>` : ''}
     ${bd.length ? `<a class="card bday-banner" href="#/memos/type/birthdays">🎂 ${bd.map(b => `<strong>${esc(b.nom)}</strong> ${b.days === 0 ? "aujourd'hui" : b.days === 1 ? 'demain' : 'dans ' + b.days + ' j'}`).join(' · ')}</a>` : ''}
     <div class="blocs" ${idf('blocs')} data-date="${d.date}"></div>`;
 }
@@ -116,21 +127,25 @@ function bindDay(root, d, { onRemove } = {}) {
   const info = q('.b-info');
   if (info) info.onclick = () => {   // « i » : affiche / masque l'échéance sous la date (désactivé par défaut)
     const on = !infoDays.has(d.date); on ? infoDays.add(d.date) : infoDays.delete(d.date);
-    info.classList.toggle('on', on); info.setAttribute('aria-pressed', String(on)); q('.day-info').hidden = !on;
+    info.classList.toggle('on', on); info.setAttribute('aria-pressed', String(on)); q('.day-info').hidden = !on; updateTop();
   };
+  q('.b-keep').onclick = () => keepAction(d, () => render()).fn();   // le rond d'archivage ouvre la fenêtre « durée d'archivage »
   q('.b-add').onclick = () => addBloc(d);
+  q('.b-dup').onclick = () => setDupMode(!dupMode);
+  q('.b-check').onclick = () => checklistPicker(d);
+  q('.b-undo').onclick = () => undoDay(d.date);
+  q('.b-redo').onclick = () => redoDay(d.date);
   q('.b-chrono').onclick = () => sortChrono(d);
-  q('.b-cal').onclick = () => Gcal.daySheet(d, () => render());
   q('.b-reset').onclick = () => {
     if (!live(d.blocs).length) return toast('Aucun bloc à effacer.');
-    confirmSheet('Effacer TOUS les blocs de la journée ?', 'Effacer', () => withUndo('Blocs effacés', () => { live(d.blocs).forEach(kill); render(); }));
+    confirmSheet('Effacer TOUS les blocs de la journée ?', 'Effacer', () => { pushUndo(d.date); withUndo('Blocs effacés', () => { live(d.blocs).forEach(kill); render(); }); });
   };
   const rm = q('.b-remove'); if (rm && onRemove) rm.onclick = () => onRemove(d);
 }
 /** Barre d'actions du haut + sous-titre : ceux de la journée « active » (seule, ou celle en haut de page dans le planning). */
 function activateDay(d, { title = true } = {}) {
   state.current = d.date; sessionDay = d.date;
-  setActions([...listActions(dayCtx(d.date)), keepAction(d, () => render())]);
+  setActions([...listActions(dayCtx(d.date)), keepAction(d, () => render()), { icon: d.cal ? '📆✓' : '📆', label: 'Agenda', fn: () => Gcal.daySheet(d, () => render()) }]);   // l'Agenda est dans la lucarne, sur toutes les pages
   if (title) setDayTitle({ icon: '📅', name: dayName(d), sub: d.subtitle || d.date === todayISO() ? capFirst(longDate(d.date)) : '', item: d, onEdit: () => renameDaySheet(d) });
 }
 
@@ -141,8 +156,10 @@ VIEWS.journee = (app, r) => {
   if (lastInfoView !== d.date) infoDays.clear();   // l'info d'échéance repart désactivée à chaque ouverture d'une autre journée
   lastInfoView = d.date;
   activateDay(d);
+  const strip = $('#day-strip');   // ligne de boutons dans la barre du haut, étirée sur toute la largeur, couleur d'origine (fond de carte + bande d'archivage)
+  strip.className = 'day-strip day-head'; strip.innerHTML = dayActionsHTML(d, false); strip.hidden = false;
   app.innerHTML = dayHTML(d, false);
-  bindDay(app, d);
+  bindDay(strip, d);
   renderBlocs();
 };
 
@@ -241,13 +258,72 @@ VIEWS.planning = app => {
   requestAnimationFrame(() => { if (planActive !== dates[0]) planScrollTo(planActive, false); });
 };
 
+/* ---------- Annuler / rétablir (par journée, en mémoire pour la session) ----------
+ * Chaque action (ajout, suppression, déplacement, couleur, horaire, tri, check-liste, duplication, vidage, titre) et chaque série de frappes enregistre l'état
+ * de la journée avant modification ; annuler / rétablir restaurent un de ces états en re-datant ce qui change (Core.restoreFrom), pour que la synchronisation
+ * n'annule pas la restauration. */
+const dayHist = {};
+const hist = date => dayHist[date] || (dayHist[date] = { undo: [], redo: [] });
+function refreshHist() {
+  $$('.b-undo, .b-redo').forEach(b => { const h = hist(b.dataset.date); b.disabled = !(b.classList.contains('b-undo') ? h.undo.length : h.redo.length); });
+}
+function pushUndo(date) {
+  const h = hist(date); h.undo.push(JSON.stringify(day(date)));
+  if (h.undo.length > 40) h.undo.shift();
+  h.redo.length = 0; refreshHist();
+}
+const typing = {};   // frappes en cours : une série (1,5 s sans frappe) = une seule étape d'historique
+function typingUndo(date) {
+  if (!typing[date]) pushUndo(date);
+  clearTimeout(typing[date]); typing[date] = setTimeout(() => { delete typing[date]; }, 1500);
+}
+function restoreDay(date, snapJson) {
+  const snapState = Core.migrate({ days: { [date]: JSON.parse(snapJson) } }, date);
+  const curState = Core.migrate({ days: { [date]: JSON.parse(JSON.stringify(day(date))) } }, date);
+  state.days[date] = Core.restoreFrom(snapState, curState, now()).days[date];
+}
+function stepDay(date, from, to, empty) {
+  const h = hist(date), snap = h[from].pop();
+  if (!snap) return toast(empty);
+  h[to].push(JSON.stringify(day(date)));
+  restoreDay(date, snap); save(); render();
+}
+const undoDay = date => stepDay(date, 'undo', 'redo', 'Rien à annuler.');
+const redoDay = date => stepDay(date, 'redo', 'undo', 'Rien à rétablir.');
+
+/** Duplique un bloc (copie juste après l'original). */
+function dupBloc(d, b) {
+  pushUndo(d.date);
+  const c = touch({ ...b, id: uid(), titre: b.titre + ' (copie)' });
+  d.blocs.push(c);
+  const list = blocsOf(d).filter(x => x !== c); list.splice(list.indexOf(b) + 1, 0, c); setOrder(d, list);
+  save(); renderBlocs(); toast('Bloc dupliqué.');
+}
+/** Mode « duplication » (bouton ⧉ actif / inactif) : bouton clignotant, blocs non modifiables mais cliquables ; un clic sur un bloc le duplique juste en dessous.
+ *  Le mode reste actif (on peut dupliquer plusieurs blocs) jusqu'à un nouvel appui sur ⧉ ou un changement de page. */
+let dupMode = false;
+function setDupMode(on) {
+  dupMode = !!on;
+  document.body.classList.toggle('dup-mode', dupMode);
+  $$('.b-dup').forEach(b => { b.classList.toggle('on', dupMode); b.setAttribute('aria-pressed', String(dupMode)); });
+  if (dupMode) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); toast('Duplication active : touche un bloc pour le dupliquer.'); }
+}
+window.addEventListener('hashchange', () => { if (dupMode) setDupMode(false); });
+document.addEventListener('click', e => {
+  if (!dupMode) return;
+  const el = e.target.closest('.bloc'); if (!el || !$('#app').contains(el)) return;
+  e.preventDefault(); e.stopPropagation();
+  const d = dayOfEl(el), b = live(d.blocs).find(x => x.id === el.dataset.id);
+  if (b) dupBloc(d, b);
+}, true);
+
 /** Titre personnalisé de la journée (stocké dans d.subtitle) ; vide = titre par défaut (date / Aujourd'hui). */
 function renameDaySheet(d) {
   openSheet(`<h3>Titre de la journée</h3><input type="text" id="dt" value="${esc(d.subtitle || '')}" placeholder="${esc(longDate(d.date))}" maxlength="120" autocomplete="off">
     <p class="meta" style="margin:6px 0 0">Laisse vide pour retrouver le titre par défaut.</p>
     <div class="row" style="margin-top:12px"><button class="grow" data-close>Annuler</button><button class="grow btn-gold" data-ok>OK</button></div>`, c => {
     const input = $('#dt', c);
-    const ok = () => { d.subtitle = input.value.trim(); touch(d); save(); closeSheet(); render(); };
+    const ok = () => { pushUndo(d.date); d.subtitle = input.value.trim(); touch(d); save(); closeSheet(); render(); };
     $('[data-close]', c).onclick = closeSheet;
     $('[data-ok]', c).onclick = ok;
     input.onkeydown = e => { if (e.key === 'Enter') ok(); };
@@ -283,7 +359,6 @@ function renderDayBlocs(box) {
         <button data-act="del" aria-label="Supprimer">🗑</button>
       </div>
       ${open ? `<div class="bloc-body">
-        <div class="tools"><button data-act="check">☑ Insérer une check-liste</button><button data-act="dup">Dupliquer</button></div>
         ${Rich.editor(b.html, b.texte, 'Écris ici… (#thème pour classer)')}
       </div>` : (b.texte || tagChips(b.titre + ' ' + b.texte) ? `<div class="bloc-body" style="padding-bottom:8px;font-size:13px;color:#555">${esc(b.texte.split('\n')[0].slice(0, 90))} ${tagChips(b.titre + ' ' + b.texte)}</div>` : '')}
     </article>`;
@@ -301,6 +376,7 @@ const blocFrom = el => live(dayOfEl(el).blocs).find(b => b.id === el.closest('.b
   app.addEventListener('input', e => {
     const el = e.target.closest('.bloc'); if (!el) return;
     const b = blocFrom(el); if (!b) return;
+    typingUndo(dayOfEl(el).date);   // avant de modifier les données : l'état d'avant la série de frappes
     if (e.target.matches('input.titre')) b.titre = e.target.value;
     else if (e.target.matches('.rte')) Rich.bind(b, 'texte', 'html', e.target);
     touch(b); save();
@@ -313,14 +389,7 @@ const blocFrom = el => live(dayOfEl(el).blocs).find(b => b.id === el.closest('.b
     if (act === 'toggle') { openBlocs.has(b.id) ? openBlocs.delete(b.id) : openBlocs.add(b.id); renderBlocs(); }
     else if (act === 'time') timeSheet(b);
     else if (act === 'color') colorSheet(b);
-    else if (act === 'check') checklistPicker(b);
-    else if (act === 'del') withUndo('Bloc supprimé', () => { kill(b); renderBlocs(); });
-    else if (act === 'dup') {
-      const d = dayOfEl(btn), c = touch({ ...b, id: uid(), titre: b.titre + ' (copie)' });
-      d.blocs.push(c);
-      const list = blocsOf(d).filter(x => x !== c); list.splice(list.indexOf(b) + 1, 0, c); setOrder(d, list);
-      save(); renderBlocs();
-    }
+    else if (act === 'del') { pushUndo(dayOfEl(btn).date); withUndo('Bloc supprimé', () => { kill(b); renderBlocs(); }); }
   });
 
   /* Réorganiser : appui maintenu sur le bouton horaire puis glisser (un simple toucher ouvre l'horaire).
@@ -386,6 +455,7 @@ const blocFrom = el => live(dayOfEl(el).blocs).find(b => b.id === el.closest('.b
     const others = items.filter(x => x !== el); others.splice(target, 0, el);
     others.forEach(x => list.appendChild(x));
     const d = day(list.dataset.date), order = others.map(c => c.dataset.id);
+    pushUndo(d.date);
     setOrder(d, blocsOf(d).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)));
     save();
   };
@@ -405,6 +475,7 @@ const blocFrom = el => live(dayOfEl(el).blocs).find(b => b.id === el.closest('.b
 }
 
 function addBloc(d) {
+  pushUndo(d.date);
   const n = blocsOf(d).length;
   const b = touch({ id: uid(), titre: '', texte: '', couleur: BLOCK_COLORS[n % 6], horaire: null,
     pos: d.blocs.reduce((m, x) => Math.max(m, x.pos), -1) + 1 });
@@ -412,6 +483,7 @@ function addBloc(d) {
   const el = $(`.bloc[data-id="${b.id}"] input.titre`); el.focus(); el.scrollIntoView({ block: 'center' });
 }
 function sortChrono(d) {
+  pushUndo(d.date);
   setOrder(d, blocsOf(d).map((b, i) => [b, i]).sort((a, c) => {
     const ha = a[0].horaire, hc = c[0].horaire;
     if (ha && hc) return ha.localeCompare(hc) || a[1] - c[1];
@@ -479,7 +551,7 @@ function timeSheet(b) {
       box.hidden = !box.hidden; $('#t-clock', c).setAttribute('aria-expanded', String(!box.hidden));
       if (!box.hidden) { if (H.value === '' && M.value === '') { H.value = pad(new Date().getHours()); M.value = '00'; } syncWheels(); }
     };
-    $('[data-clear]', c).onclick = () => { b.horaire = null; done(); };
+    $('[data-clear]', c).onclick = () => { pushUndo(d.date); b.horaire = null; done(); };
     const validate = () => {
       let h = H.value.trim(), m = M.value.trim(), v = null;
       if (h !== '' || m !== '') {
@@ -489,6 +561,7 @@ function timeSheet(b) {
         v = pad(+h) + ':' + pad(+m);
       }
       const changed = v !== b.horaire;
+      if (changed) pushUndo(d.date);
       b.horaire = v;
       if (v && changed) placeChrono(d, b);   // l'ordre chronologique ne s'applique qu'à la saisie d'un nouvel horaire ; ensuite le bloc reste déplaçable librement
       done();
@@ -502,21 +575,28 @@ function colorSheet(b) {
   openSheet(`<h3>Couleur du bloc</h3><div class="swatches">${BLOCK_COLORS.map(c =>
     `<button class="swatch ${c === b.couleur ? 'on' : ''}" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}</div>
     <label>Couleur libre <input type="color" id="cc" value="${b.couleur}" style="height:44px;padding:2px"></label>`, c => {
-    const set = col => { b.couleur = col; touch(b); save(); closeSheet(); renderBlocs(); };
+    const set = col => { const dd = dayOfBloc(b); if (dd) pushUndo(dd.date); b.couleur = col; touch(b); save(); closeSheet(); renderBlocs(); };
     $$('.swatch', c).forEach(s => (s.onclick = () => set(s.dataset.c)));
     $('#cc', c).onchange = e => set(e.target.value);
   });
 }
 /** Insère les lignes d'une check-liste de la bibliothèque dans le texte du bloc. */
-function checklistPicker(b) {
+/** Icône ☑️ : choisit une check-liste ; un NOUVEAU bloc est créé avec son contenu (nom de la liste en titre, lignes « ☐ … »). */
+function checklistPicker(d) {
   const lists = liveNotes().filter(n => n.type === 'checklist');
   if (!lists.length) return toast('Aucune check-liste. Crée-en une dans Mémos.');
   openSheet(`<h3>Insérer une check-liste</h3><div class="btn-list">${lists.map(n =>
     `<button data-id="${n.id}">${esc(n.title || 'Check-liste')} <span class="meta">(${n.data.items.length})</span></button>`).join('')}</div>`, c => {
     $$('button[data-id]', c).forEach(btn => (btn.onclick = () => {
       const n = noteById(btn.dataset.id);
-      const lines = n.data.items.map(i => '☐ ' + i.t).join('\n');
-      Rich.append(b, 'texte', 'html', lines); touch(b); save(); closeSheet(); renderBlocs();
+      pushUndo(d.date);
+      const lines = n.data.items.map(i => '☐ ' + i.t).join('\n'), cnt = blocsOf(d).length;
+      const b = touch({ id: uid(), titre: n.title || 'Check-liste', texte: '', couleur: BLOCK_COLORS[cnt % 6], horaire: null,
+        pos: d.blocs.reduce((m, x) => Math.max(m, x.pos), -1) + 1 });
+      Rich.append(b, 'texte', 'html', lines); touch(b);
+      d.blocs.push(b); openBlocs.add(b.id);   // le nouveau bloc s'ouvre pour montrer la liste
+      save(); closeSheet(); renderBlocs();
+      const el = $(`.bloc[data-id="${b.id}"]`); if (el) el.scrollIntoView({ block: 'center' });
     }));
   });
 }
@@ -693,8 +773,8 @@ function titleArrows(cur) {
   ref.innerHTML = `À FAIRE <span class="title-pill">🧐 Toutes les tâches</span>`;
   row.appendChild(ref); const w = ref.getBoundingClientRect().width; ref.remove();
   const cx = row.getBoundingClientRect().width / 2, aw = $('.tnav', row).getBoundingClientRect().width;
-  const lo = Math.max(0, ...['#top-ico'].map(q => { const e = $(q); return e && !e.hidden ? e.getBoundingClientRect().right : 0; }));
-  const hi = $('#btn-gear').getBoundingClientRect().left - 6;   // s'arrête avant la roue (le ✓ de sauvegarde passe brièvement sous la flèche)
+  const lo = Math.max(0, ...['#top-back'].map(q => { const e = $(q); return e && !e.hidden ? e.getBoundingClientRect().right - 3 : 0; }));
+  const hi = $('#btn-home').getBoundingClientRect().left - 6;   // s'arrête avant le bouton d'accueil (le ✓ de sauvegarde passe brièvement sous la flèche)
   const cap = Math.min(cx - lo, hi - cx) - 2;
   row.style.setProperty('--navhalf', Math.max(40, Math.floor(Math.min(Math.ceil(w / 2) + 1, cap - aw - 4))) + 'px');
 }

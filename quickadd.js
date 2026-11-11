@@ -43,7 +43,7 @@ function quickAddSheet() {
   const item = (id, icon, label) => `<button class="qa-row" data-qa="${id}"><span>${icon}</span>${esc(label)}</button>`;
   const group = (key, title, items) => `<section class="qa-sec" data-g="${key}"><div class="qa-h">${esc(title)}</div>${items.join('')}</section>`;
   openSheet(`<div class="qa-list">
-    ${group('journee', 'Journée', [item('j-today', '📅', 'Aujourd’hui'), item('j-date', '🗓️', 'Date à définir'), item('j-type', '🧩', 'Journée type')])}
+    ${group('journee', 'Journées', [item('j-today', '📅', 'Aujourd’hui'), item('j-date', '🗓️', 'Date à définir'), item('j-type', '🧩', 'Journée type')])}
     ${group('afaire', 'À faire', TODO_QUICK.map(t => item('t-' + t.id, t.icon, t.label)))}
     ${group('checklists', 'Check-listes', [item('c-new', '＋', 'Nouvelle'), item('c-tpl', '📑', 'Depuis une liste type')])}
     ${group('memos', 'Mémo', MEMO_TYPES.map(t => item('m-' + t, TYPE_META[t].icon, TYPE_META[t].one)))}</div>`, c => {
