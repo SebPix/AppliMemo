@@ -242,7 +242,7 @@ function promptSheet(title, { label = '', value = '', okLabel = 'OK', type = 'te
 const VIEWS = {};            // rempli par les fichiers de vues : VIEWS[nom] = (app, params) => …
 let renderTok = 0;           // invalide les rendus asynchrones périmés
 let navCount = 0;            // nombre de navigations depuis le chargement (pour le bouton retour)
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.1.5';
 const TITLES = { menu: `APPLI MEMO / version N° ${APP_VERSION}`, journee: 'MA JOURNÉE', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
 
 function parseRoute() {
