@@ -214,9 +214,34 @@ function openSheet(html, bind) {
   s.innerHTML = `<div class="sheet-card">${html}</div>`;
   s.hidden = false;
   s.onclick = e => { if (e.target === s) closeSheet(); };
+  s.style.background = '';
   const card = $('.sheet-card', s);
   bind && bind(card);
+  swipeToClose(s, card);
   return card;
+}
+/** Feuille du bas fermable en la glissant vers le bas (menu ＋ Créer, choix…). Désactivé si la feuille contient un champ de saisie
+ *  (on ne perd pas un texte tapé par un geste involontaire) ; le geste ne démarre que si la feuille est défilée tout en haut. */
+function swipeToClose(s, card) {
+  if (card.querySelector('input, textarea, select, [contenteditable]')) return;
+  card.insertAdjacentHTML('afterbegin', '<div class="sheet-grip" aria-hidden="true"></div>');
+  let y0 = 0, dy = 0, drag = false, atTop = false;
+  card.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; y0 = e.touches[0].clientY; dy = 0; drag = false; atTop = card.scrollTop <= 0; card.style.transition = 'none'; }, { passive: true });
+  card.addEventListener('touchmove', e => {
+    const d = e.touches[0].clientY - y0;
+    if (!drag) { if (atTop && d > 8) drag = true; else return; }
+    e.preventDefault();   // la feuille suit le doigt au lieu de défiler
+    dy = Math.max(0, d);
+    card.style.transform = `translateY(${dy}px)`;
+    s.style.background = `rgba(0,0,0,${.4 * (1 - Math.min(1, dy / (card.offsetHeight || 1)))})`;
+  }, { passive: false });
+  const end = () => {
+    if (!drag) return;
+    drag = false; card.style.transition = 'transform .18s ease-out';
+    if (dy > 80 || dy > card.offsetHeight * .3) { card.style.transform = 'translateY(100%)'; s.style.background = 'rgba(0,0,0,0)'; setTimeout(closeSheet, 170); }
+    else { card.style.transform = ''; s.style.background = ''; }
+  };
+  card.addEventListener('touchend', end); card.addEventListener('touchcancel', end);
 }
 function closeSheet() { $('#sheet').hidden = true; $('#sheet').innerHTML = ''; }
 function confirmSheet(title, okLabel, onOk) {
@@ -286,6 +311,20 @@ const rememberedHash = tab => {
   return gone ? '#/' + tab : h;   // la note ou la liste type a été supprimée : retour à la racine
 };
 function nav(hash) { if (location.hash === hash) render(); else location.hash = hash; }
+/* Couleurs par rubrique : barre du haut (--sbar) et fond de page (--sbg), voir styles.css « body[data-sect] ».
+ * Page MENU, Préférences et Bibliothèque gardent le jaune d'origine (pas de data-sect). */
+const SECT_BAR = { journee: '#ed1a1a', afaire: '#1a6bed', checklists: '#15cf5c', memos: '#e39f17', quick: '#b3b3b3' };
+function sectionOf(r, n) {
+  if (r.name === 'biblio') return libOverview ? 'quick' : '';   // Accès rapide = page 2/2 de la Bibliothèque
+  if (r.name === 'note') return !n ? 'memos' : n.type === 'checklist' ? 'checklists' : n.type === 'todo' ? 'afaire' : 'memos';
+  const t = { journee: 'journee', jtype: 'journee', afaire: 'afaire', atheme: 'afaire', atout: 'afaire', checklists: 'checklists', cltype: 'checklists', memos: 'memos', type: 'memos' }[r.name];
+  return t || '';
+}
+function applySection(r, n) {
+  const sect = sectionOf(r, n);
+  if (sect) document.body.dataset.sect = sect; else delete document.body.dataset.sect;
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = SECT_BAR[sect] || '#c4a33f';
+}
 function render() {
   closeSheet();
   if (!['note', 'atheme', 'atout'].includes(parseRoute().name)) dueShown = '';   // l'échéance des tâches est reproposée à chaque ouverture d'une fenêtre À faire
@@ -301,6 +340,7 @@ function render() {
   $('#view-title').textContent = TITLES[r.name] || '';
   topSub = '';
   document.body.classList.remove('tpl-page');
+  applySection(r, n);
   document.body.classList.toggle('on-menu', r.name === 'menu');   // page MENU : pas de barre d'onglets en bas   // fond vert des listes types : posé par leur vue
   $$('.top-row .tnav').forEach(x => x.remove()); $('.top-row').classList.remove('has-nav', 'has-tgl');
   { const fr = $('#filter-rows'); fr.hidden = true; fr.innerHTML = ''; }   // lignes de filtres : propres à la liste complète d'Accès rapide   // flèches de durée : propres à la fenêtre d'un niveau
@@ -343,7 +383,7 @@ function updateTop() { document.documentElement.style.setProperty('--toph', $('.
 window.addEventListener('resize', updateTop);
 function setTitle(t) { $('#view-title').textContent = t; }
 
-/* Appuis successifs sur le titre : (carte d'en-tête, ligne 1a/1b) → (masquée, visible) → (masquée, masquée) → (masquée, visible) → (visibles) → …
+/* Appuis longs successifs sur le titre : (carte d'en-tête, ligne 1a/1b) → (masquée, visible) → (masquée, masquée) → (masquée, visible) → (visibles) → …
  * Les étapes qui ne changeraient rien (pas de carte, pas de ligne 1a/1b) sont sautées : aucun clic inutile. Remis à zéro à chaque changement de page. */
 const FOLD_STEPS = [[0, 0], [1, 0], [1, 1], [1, 0]];
 let foldIdx = 0;
@@ -384,7 +424,6 @@ function syncTop() {
   const title = $('#view-title'), cur = f;
   const foldable = FOLD_STEPS.some((_, i) => !sameFold(foldEff(i, rowOn), cur));
   title.classList.toggle('foldable', foldable);
-  if (foldable) { title.setAttribute('role', 'button'); title.tabIndex = 0; } else { title.removeAttribute('role'); title.removeAttribute('tabindex'); }
   updateTop();
 }
 function foldNext() {
@@ -395,24 +434,19 @@ function foldNext() {
   }
   syncTop();
 }
-/* Appui long (1 s) sur le titre : déploie / replie la ligne visible (1a ou 1b). Sans effet si tous ses boutons tiennent déjà sur une ligne. */
+/* Titre : un clic ouvre la page MENU d'accueil ; un appui long (1 s) replie l'en-tête (cycle foldNext). */
 let pressTimer = 0, longFired = false;
 const titleEl = $('#view-title');
-function toggleExpand() {
-  const a = topLines().show1b ? $('#fmt-bar') : $('#top-actions');
-  if (!actionsExpanded && (a.hidden || a.scrollWidth <= a.clientWidth + 1)) return false;
-  actionsExpanded = !actionsExpanded; syncTop(); return true;
-}
 titleEl.addEventListener('pointerdown', e => {
   if (e.button > 0) return;
   longFired = false; clearTimeout(pressTimer);
-  pressTimer = setTimeout(() => { longFired = toggleExpand(); }, 1000);
+  pressTimer = setTimeout(() => { longFired = true; foldNext(); }, 1000);
 });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => titleEl.addEventListener(t, () => clearTimeout(pressTimer)));
 titleEl.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('resize', () => { if (actionsExpanded) syncTop(); });
-titleEl.addEventListener('click', () => { if (longFired) { longFired = false; return; } foldNext(); });
-$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); foldNext(); } });
+titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('button, a')) return; nav('#/menu'); });
+$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav('#/menu'); } });
 // un éditeur de texte qui apparaît / disparaît change la disponibilité de la ligne 1b
 new MutationObserver(syncTop).observe($('#app'), { childList: true, subtree: true });   // callbacks déjà groupés par le navigateur
 window.addEventListener('hashchange', () => { navCount++; foldIdx = 0; actionsExpanded = false; render(); });

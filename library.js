@@ -121,6 +121,7 @@ $('#tabbar').addEventListener('click', e => {
 function libChrome() {
   try { localStorage.setItem(LIBPAGE_KEY, libOverview ? 'quick' : 'lib'); } catch (e) {}
   const html = `<span class="ic">${libOverview ? '<b class="rb-star">★</b>' : '📚'}<sup class="pg">${libOverview ? '2/2' : '1/2'}</sup></span>${libOverview ? 'Accès rapide' : 'Bibliothèque'}`, tb = $('#tabbar [data-view=biblio]');
+  tb.dataset.pg = libOverview ? 'quick' : 'lib';   // l'onglet prend la couleur de la page affichée (voir styles.css)
   if (tb.dataset.h !== html) { tb.dataset.h = html; tb.innerHTML = html; }   // ne réécrit que si ça change : sinon la cible d'un clic sur l'icône disparaît entre appui et relâchement
 }
 

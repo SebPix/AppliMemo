@@ -15,7 +15,7 @@
 html, body { margin: 0; height: 100%; }
 body {
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg); color: var(--ink);
+  background: var(--sbg, var(--bg)); color: var(--ink);
   padding-top: calc(var(--top) + env(safe-area-inset-top));
   padding-bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 12px);
   overscroll-behavior-y: none;
@@ -28,7 +28,7 @@ textarea { resize: vertical; min-height: 120px; }
 .topbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 20;
   height: calc(var(--top) + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top);
-  background: var(--gold); color: #fff; display: flex; align-items: center; gap: 10px; padding-inline: 10px;
+  background: var(--sbar, var(--gold)); color: #fff; display: flex; align-items: center; gap: 10px; padding-inline: 10px;
 }
 .topbar h1 { margin: 0; font-size: 17px; letter-spacing: .08em; flex: 1; }
 .topbar .icon-btn { background: transparent; color: #fff; font-size: 22px; padding: 4px 10px; }
@@ -328,7 +328,7 @@ details.tree details.tree .lrow.kc { border-left-width: 4px; }
 
 /* Titre cliquable : replie la 1re carte de la page (fold 1), puis aussi la ligne de boutons sous le titre (fold 2) */
 .topbar h1 { -webkit-user-select: none; user-select: none; }
-.topbar h1.foldable { cursor: pointer; }
+.topbar h1 { cursor: pointer; }
 body[data-hide-card] #app > :first-child { display: none; }
 body[data-hide-row] .top-row2 { display: none; }
 .top-row2[hidden], .top-row2 [hidden] { display: none !important; }
@@ -393,7 +393,7 @@ body[data-sub] .top-row h1 { top: calc(50% - 7px); }
 
 /* --- À faire : fenêtre d'un niveau --- */
 .theme-title { font-size: 15px; font-weight: 600; color: var(--muted); margin: 0 2px 8px; }
-.top-actions button.on { background: #fff !important; color: var(--gold) !important; font-weight: 700; }
+.top-actions button.on { background: #fff !important; color: var(--sbar, var(--gold)) !important; font-weight: 700; }
 .top-actions button { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .card.todo .info { min-width: 30px; padding: 2px 6px; background: #eee; color: var(--muted); font-size: 15px; }
 
@@ -551,7 +551,7 @@ body.tpl-page { background: #eaf5ec !important; }
 /* Accès rapide : « Liste complète » / « Liste réduite » côte à côte à droite du titre, le mode actif en surbrillance */
 .vt-tgl { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: middle; letter-spacing: 0; }
 .vt-tgl button { min-height: 0; padding: 3px 8px; font-size: 11px; font-weight: 600; border: 0; border-radius: 10px; background: rgba(255,255,255,.25); color: #fff; white-space: nowrap; }
-.vt-tgl button.on { background: #fff; color: var(--gold); }
+.vt-tgl button.on { background: #fff; color: var(--sbar, var(--gold)); }
 .top-row.has-tgl h1 { max-width: calc(100% - 90px); }
 
 /* Liste complète : lignes de propositions dans la barre jaune */
@@ -562,7 +562,7 @@ body.tpl-page { background: #eaf5ec !important; }
 .fchips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .fchips::-webkit-scrollbar { display: none; }
 .fchip { flex: none; min-height: 28px; padding: 3px 11px; border: 0; border-radius: 14px; background: rgba(255,255,255,.25); color: #fff; font-size: 12px; white-space: nowrap; }
-.fchip.on { background: #fff; color: var(--gold); font-weight: 700; }
+.fchip.on { background: #fff; color: var(--sbar, var(--gold)); font-weight: 700; }
 .top-actions button.filt-reset { margin-left: auto; position: sticky; right: 0; flex: none; font-size: 18px; }
 .top-actions button.filt-reset.off { opacity: .45; }
 
@@ -691,3 +691,57 @@ body.on-menu .top-row h1 { white-space: normal; line-height: 16px; font-size: 13
   .top-row .tnav-l { left: 44px; } .top-row .tnav-r { right: 50px; }
   .top-row .tnav { padding: 3px 6px; }
 }
+
+/* =====================================================================
+   Couleurs par rubrique (barre du haut --sbar, fond de page --sbg).
+   MENU, Préférences et Bibliothèque : jaune d'origine. Le thème sombre garde son fond sombre (seule la barre change).
+   ===================================================================== */
+body[data-sect=journee]    { --sbar: #ed1a1a; --sbg: #f2a7a7; }
+body[data-sect=afaire]     { --sbar: #1a6bed; --sbg: #d9e7fc; }
+body[data-sect=checklists] { --sbar: #15cf5c; --sbg: #aef2c8; }
+body[data-sect=memos]      { --sbar: #e39f17; --sbg: #fadb9d; }
+body[data-sect=quick]      { --sbar: #b3b3b3; --sbg: #ffffff; }
+:root[data-theme=dark] body[data-sect] { --sbg: var(--bg); }
+@media (prefers-color-scheme: dark) { :root[data-theme=auto] body[data-sect] { --sbg: var(--bg); } }
+
+/* Accès rapide : barre gris clair → texte et boutons sombres */
+body[data-sect=quick] .topbar { color: #2b2b2b; }
+:root[data-theme] body[data-sect=quick] .topbar .icon-btn,
+:root[data-theme] body[data-sect=quick] .title-fav { color: #2b2b2b; }
+:root[data-theme] body[data-sect=quick] .top-actions button,
+:root[data-theme] body[data-sect=quick] .fmt-bar button,
+:root[data-theme] body[data-sect=quick] .vt-tgl button,
+:root[data-theme] body[data-sect=quick] .fchip { background: rgba(0,0,0,.09); color: #2b2b2b; }
+:root[data-theme] body[data-sect=quick] .top-actions button.danger { background: rgba(192,57,43,.9); color: #fff; }
+:root[data-theme] body[data-sect=quick] .top-actions button.on,
+:root[data-theme] body[data-sect=quick] .vt-tgl button.on,
+:root[data-theme] body[data-sect=quick] .fchip.on { background: #2b2b2b !important; color: #fff !important; }
+body[data-sect=quick] .frow .flab { color: #2b2b2b; }
+body[data-sect=quick] .vsep { background: rgba(0,0,0,.35); }
+
+/* Accès rapide sur écran étroit : titre sur une ligne, « Liste complète / réduite » centrés dessous (rien de rogné) */
+@media (max-width: 420px) {
+  .top-row.has-tgl h1 { white-space: normal; line-height: 15px; font-size: 13px; max-width: calc(100% - 100px); }
+  .top-row.has-tgl .vt-tgl { display: flex; justify-content: center; margin: 3px 0 0; }
+}
+
+/* Onglets du bas : chacun prend la couleur du fond de sa page ; l'onglet actif est en gras avec un liseré de la couleur de sa barre du haut.
+   (Bibliothèque ↔ Accès rapide : l'onglet suit la page affichée, voir data-pg posé par library.js.) Thème sombre : onglets sans couleur. */
+.tabbar button[data-view=journee]    { --tc: #f2a7a7; --tl: #ed1a1a; }
+.tabbar button[data-view=afaire]     { --tc: #d9e7fc; --tl: #1a6bed; }
+.tabbar button[data-view=checklists] { --tc: #aef2c8; --tl: #15cf5c; }
+.tabbar button[data-view=memos]      { --tc: #fadb9d; --tl: #e39f17; }
+.tabbar button[data-view=biblio]     { --tc: #f5eccb; --tl: #c4a33f; }
+.tabbar button[data-view=biblio][data-pg=quick] { --tc: #ffffff; --tl: #b3b3b3; }
+:root[data-theme] .tabbar button[data-view] { background: var(--tc); color: #4a4a4a; }
+:root[data-theme] .tabbar button[data-view].on { background: var(--tc); color: #1a1a1a; font-weight: 700; box-shadow: inset 0 4px 0 var(--tl); }
+:root[data-theme=dark] .tabbar button[data-view] { background: transparent; color: var(--muted); }
+:root[data-theme=dark] .tabbar button[data-view].on { background: rgba(196,163,63,.22); color: var(--gold); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme=auto] .tabbar button[data-view] { background: transparent; color: var(--muted); }
+  :root[data-theme=auto] .tabbar button[data-view].on { background: rgba(196,163,63,.22); color: var(--gold); }
+}
+
+/* poignée des feuilles fermables par glissement vers le bas */
+.sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: rgba(127,127,127,.45); margin: -6px auto 12px; }
+.sheet-card { overscroll-behavior: contain; }
