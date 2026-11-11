@@ -83,7 +83,7 @@ function drawLibrary() {
     body.innerHTML = [
       section('days', '📅', 'Journées', days.length, days.length ? [...months].map(([m, list]) =>
         section('m:' + m, '', `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`, list.length, list.map(e => row(e)).join(''), list.map(e => e.key))).join('') : '<p class="empty small">Aucune journée.</p>', days.map(e => e.key), 's-journee'),
-      section('todo', '❗', 'À faire', byType('todo').length, byType('todo').length ? byType('todo').map(e => row(e)).join('') : '<p class="empty small">Aucune note À faire.</p>', byType('todo').map(e => e.key), 's-afaire'),
+      section('todo', '👁️', 'À faire', byType('todo').length, byType('todo').length ? byType('todo').map(e => row(e)).join('') : '<p class="empty small">Aucune note À faire.</p>', byType('todo').map(e => e.key), 's-afaire'),
       section('checks', '☑️', 'Check-listes', byType('checklist').length, byType('checklist').length ? byType('checklist').map(e => row(e)).join('') : '<p class="empty small">Aucune check-liste.</p>', byType('checklist').map(e => e.key), 's-checklists'),
       section('memos', '📝', 'Mémos', E.filter(e => e.type && e.type !== 'checklist' && e.type !== 'todo').length, MEMO_TYPES.map(t => {
         const l = byType(t);

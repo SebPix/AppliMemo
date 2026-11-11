@@ -58,7 +58,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!$('#sheet details') && groups.join('|') === 'Journée|À faire|Check-listes|Mémo', 'menu « + » : liste plate (pas de menus déroulants), titres Journée, À faire, Check-listes, Mémo');
       const lab = g => $$(`#sheet .qa-sec[data-g=${g}] [data-qa]`).map(b => b.textContent.trim());
       ok(lab('journee').join('|') === '📅Aujourd’hui|🗓️Date à définir|🧩Journée type', 'menu « + » : Journée › Aujourd\'hui, Date à définir, journée type');
-      ok(lab('afaire').length === 6 && ['Urgentissime', 'Urgent', 'Moyen terme', 'Long terme', 'Infini', 'Note personnalisée'].every((x, i) => lab('afaire')[i].includes(x)), 'menu « + » : À faire › urgentissime, urgent, moyen terme, long terme, note personnalisée');
+      ok(lab('afaire').length === 6 && ['Urgentissime', 'Urgent', 'Moyen terme', 'Long terme', 'Infini', 'Nouvelle thématique'].every((x, i) => lab('afaire')[i].includes(x)), 'menu « + » : À faire › urgentissime, urgent, moyen terme, long terme, note personnalisée');
       ok(lab('checklists').length === 2 && lab('checklists')[0].includes('Nouvelle') && lab('checklists')[1].includes('liste type'), 'menu « + » : Check-listes › nouvelle, depuis une liste type');
       ok(lab('memos').length === 9 && lab('memos').some(x => x.includes('Mémo divers')) && lab('memos').some(x => x.includes('Mémo vocal')), 'menu « + » : Mémo › tous les types de mémo (' + lab('memos').length + ')');
       click('#sheet [data-qa=j-today]'); await wait(80);
@@ -77,23 +77,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok($('#btn-gear').textContent.includes('⚙'), 'roue crantée présente');
     ok(!txt().includes('Thèmes') || true, '');
 
-    // --- Journée : écran d'ouverture à 3 choix
-    ok(w.location.hash === '#/journee' && $$('#app [data-c], #app .bigcard').length === 3, 'journée : à l\'ouverture, 3 choix');
+    // --- Journée : écran d'ouverture à 4 choix
+    ok(w.location.hash === '#/journee' && $$('#app [data-c], #app .bigcard').length === 4, 'journée : à l\'ouverture, 4 choix');
     const choose = $('#app .choose3').innerText;
-    ok(choose.includes('Aujourd’hui') && choose.includes('Date à définir') && choose.includes('Journée type'), 'choix : Aujourd\'hui · Date à définir · Journée type');
+    ok(choose.includes('Aujourd’hui') && choose.includes('Date à définir') && choose.includes('Journée type') && choose.includes('Planning'), 'choix : Aujourd\'hui · Date à définir · Journée type · Planning');
     click('[data-c=type]'); await wait(40); ok(w.location.hash === '#/journee/type' && $('#jt-sel').disabled, 'journée type : bouton → fenêtre dédiée, menu vide désactivé'); await go('#/journee');
     click('[data-c=date]'); await wait(30);
     { const f2 = $('#sheet form'); f2.elements.d.value = '2026-03-14'; submit(f2); } await wait(80);
-    ok(w.location.hash === '#/journee/2026-03-14' && $('.day-title').innerText.toLowerCase().includes('14 mars 2026') && !$('.date-label'), 'Date à définir : ouvre la journée choisie (titre = date)');
+    ok(w.location.hash === '#/journee/2026-03-14' && $('#view-title').innerText.toLowerCase().includes('14 mars 2026') && $('#top-sub').hidden, 'Date à définir : ouvre la journée choisie (nom = date, dans la barre du haut)');
     await go('#/journee'); click('[data-c=today]'); await wait(80);
-    ok(w.location.hash === '#/journee/' + TODAY && $('.day-title').innerText === 'Aujourd’hui', 'Aujourd\'hui : ouvre la journée du jour, titre « Aujourd’hui »');
-    ok($('.date-label').innerText.toLowerCase() === w.eval('longDate(todayISO())'), 'Aujourd\'hui : la date du jour en petit sous le titre');
+    ok(w.location.hash === '#/journee/' + TODAY && $('#view-title').innerText.includes('Aujourd’hui'), 'Aujourd\'hui : ouvre la journée du jour, nom « Aujourd’hui » dans la barre du haut');
+    ok($('#top-sub').textContent.toLowerCase() === w.eval('longDate(todayISO())') && !$('#top-sub').hidden, 'Aujourd\'hui : la date du jour en petit sous le nom (barre du haut)');
     ok(!$('#date-input') && !$('#subtitle') && !$('input[type=date]'), 'ni calendrier ni champ « nom » dans l\'en-tête');
-    ok($$('.day-head .actions button').map(b => b.innerText.replace(/[^\p{L}+]/gu, '').trim()).join('|') === 'Vider|Trier|Bloc', 'boutons : uniquement Vider, Trier, + Bloc');
-    const tc = getComputedStyle($('.day-title')).color, bandc = getComputedStyle($('.day-head')).borderLeftColor;
+    ok($$('.day-head .actions button').map(b => b.innerText.replace(/[^\p{L}+]/gu, '').trim()).join('|') === 'Vider|Trier|Agenda|Bloc', 'boutons sous la barre : Vider, Trier, Agenda, + Bloc (+ i si une échéance existe)');
+    const bandc = getComputedStyle($('.day-head')).borderLeftColor;
     const rgbOf = c => (c.startsWith('color(') ? c.match(/[\d.]+/g).slice(-3).map(v => v * 255) : c.match(/\d+/g).map(Number));
     const near = (a, b) => { const x = rgbOf(a), y = rgbOf(b); return Math.abs(x[0] - y[0]) < 40 && Math.abs(x[1] - y[1]) < 40 && Math.abs(x[2] - y[2]) < 40; };
-    ok(near(tc, 'rgb(149, 165, 166)') && bandc === 'rgb(149, 165, 166)', 'titre « Aujourd’hui » gris, comme la barre latérale (1 semaine)');
+    ok(bandc === 'rgb(149, 165, 166)', 'barre latérale grise (1 semaine)');
 
     // --- Journée : bloc + hashtag
     click('#b-add'); await wait(50);

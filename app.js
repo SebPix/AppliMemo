@@ -9,7 +9,7 @@ const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 
 const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const TYPE_META = {
   checklist: { icon: '☑️', label: 'Check-listes', one: 'Check-liste', def: 'Check-liste' },
-  todo:      { icon: '❗', label: 'À faire', one: 'Note À faire', def: 'À faire' },
+  todo:      { icon: '👁️', label: 'À faire', one: 'Note À faire', def: 'À faire' },
   password:  { icon: '🔐', label: 'Mots de passe', one: 'Coffre de mots de passe', def: 'Mots de passe' },
   divers:    { icon: '📝', label: 'Mémos divers', one: 'Mémo divers', def: '' },
   ecritures: { icon: '✍️', label: 'Écritures', one: 'Écriture', def: 'Écriture' },
@@ -280,20 +280,22 @@ function parseRoute() {
   if (name === 'afaire' && parts[1] === 'tout') return { name: 'atout' };
   if (name === 'afaire' && parts[1] === 'theme') return { name: 'atheme', theme: parts.slice(2).join('/') };
   if (name === 'journee' && parts[1] === 'type') return { name: 'jtype' };
+  if (name === 'journee' && parts[1] === 'planning') return { name: 'planning' };
   if (name === 'journee') return { name: 'journee', date: /^\d{4}-\d{2}-\d{2}$/.test(parts[1] || '') ? parts[1] : null };
   return VIEWS[name] ? { name } : { name: 'journee', date: null };
 }
-const TAB_OF = { journee: 'journee', afaire: 'afaire', checklists: 'checklists', memos: 'memos', type: 'memos', note: 'memos', biblio: 'biblio', tag: 'biblio', atheme: 'afaire', atout: 'afaire', cltype: 'checklists', jtype: 'journee', reglages: null };
-const PARENT = { cltype: '#/checklists', jtype: '#/journee', atheme: '#/afaire', atout: '#/afaire', type: '#/memos', note: '#/memos', tag: '#/biblio', reglages: '#/menu' };
+const TAB_OF = { journee: 'journee', afaire: 'afaire', checklists: 'checklists', memos: 'memos', type: 'memos', note: 'memos', biblio: 'biblio', tag: 'biblio', atheme: 'afaire', atout: 'afaire', cltype: 'checklists', jtype: 'journee', planning: 'journee', reglages: null };
+const PARENT = { cltype: '#/checklists', jtype: '#/journee', planning: '#/journee', atheme: '#/afaire', atout: '#/afaire', type: '#/memos', note: '#/memos', tag: '#/biblio', reglages: '#/menu' };
 
 /* Mémoire par onglet : on retrouve la dernière fenêtre ouverte dans un onglet en y revenant depuis un autre ; un clic sur l'onglet déjà actif ramène à sa racine. */
 const tabLast = {};
 /* Page MENU d'accueil : tous les onglets en gros boutons, plus Préférences et ＋ Créer (barre du bas masquée sur cette page). */
 VIEWS.menu = app => {
-  const T = [['journee', '📅', 'Journée'], ['afaire', '❗', 'À faire'], ['checklists', '☑️', 'Check-listes'], ['memos', '📝', 'Mémos'], ['biblio', '📚', 'Bibliothèque'], ['quick', '<b class="rb-star">★</b>', 'Accès rapide']];
+  const T = [['journee', '📅', 'Journée'], ['afaire', '👁️', 'À faire'], ['checklists', '☑️', 'Check-listes'], ['memos', '📝', 'Mémos'], ['biblio', '📚', 'Bibliothèque'], ['quick', '<b class="rb-star">★</b>', 'Accès rapide']];
   app.innerHTML = `<div class="menu-wrap"><div class="menu-all"><div class="menu-grid">${T.map(([v, ic, lab]) => `<button type="button" class="menu-btn" data-go="${v}"><span class="mi">${ic}</span><strong>${lab}</strong></button>`).join('')}</div>
     <div class="menu-low"><button type="button" class="menu-small" data-go="reglages" aria-label="Préférences"><span class="mi">⚙︎</span><span>Préférences</span></button>
-    <button type="button" class="menu-small menu-create" id="menu-add" aria-label="Créer"><span class="mi">＋</span><span>Créer</span></button></div></div></div>`;
+    <button type="button" class="menu-small menu-create" id="menu-add" aria-label="Créer"><span class="mi">＋</span><span>Créer</span></button>
+    <button type="button" class="menu-small menu-amelio ${ameliIsOn() ? 'on' : ''}" id="menu-amelio" aria-pressed="${ameliIsOn()}" aria-label="Améliorations"><span class="mi">💡</span><span>Améliorations</span></button></div></div></div>`;
   $$('[data-go]', app).forEach(b => (b.onclick = () => {
     const v = b.dataset.go;
     if (v === 'reglages') return nav('#/reglages');
@@ -301,6 +303,7 @@ VIEWS.menu = app => {
     nav(rememberedHash(v));   // un onglet s'ouvre sur sa dernière fenêtre
   }));
   $('#menu-add', app).onclick = quickAddSheet;
+  $('#menu-amelio', app).onclick = ameliToggle;
 };
 const tabOf = r => { const n = r.name === 'note' ? noteById(r.id) : null; return n && n.type === 'checklist' ? 'checklists' : n && n.type === 'todo' ? 'afaire' : TAB_OF[r.name]; };
 const rememberedHash = tab => {
@@ -318,7 +321,7 @@ function sectionOf(r, n) {
   if (r.name === 'biblio') return libOverview ? 'quick' : 'lib';   // Accès rapide = page 2/2 de la Bibliothèque
   if (r.name === 'tag') return 'lib';
   if (r.name === 'note') return !n ? 'memos' : n.type === 'checklist' ? 'checklists' : n.type === 'todo' ? 'afaire' : 'memos';
-  const t = { journee: 'journee', jtype: 'journee', afaire: 'afaire', atheme: 'afaire', atout: 'afaire', checklists: 'checklists', cltype: 'checklists', memos: 'memos', type: 'memos' }[r.name];
+  const t = { journee: 'journee', jtype: 'journee', planning: 'journee', afaire: 'afaire', atheme: 'afaire', atout: 'afaire', checklists: 'checklists', cltype: 'checklists', memos: 'memos', type: 'memos' }[r.name];
   return t || '';
 }
 function applySection(r, n) {
@@ -338,15 +341,20 @@ function render() {
   const tab = n && n.type === 'checklist' ? 'checklists' : n && n.type === 'todo' ? 'afaire' : TAB_OF[r.name];
   $$('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === tab));
   if (tab) tabLast[tab] = location.hash || '#/' + tab;
-  $('#btn-back').hidden = !PARENT[r.name];
+  $('#btn-back').hidden = !(PARENT[r.name] || (r.name === 'journee' && r.date));   // une journée ouverte : retour à la racine Journée
   $('#view-title').textContent = TITLES[r.name] || '';
-  topSub = '';
+  $('#view-title').classList.remove('tt'); topSub = ''; topSubAlways = false; titleEdit = null;
   document.body.classList.remove('tpl-page');
+  document.documentElement.classList.remove('plan-snap');   // aimantation du planning : posée par sa vue
   applySection(r, n);
   document.body.classList.toggle('on-menu', r.name === 'menu');   // page MENU : pas de barre d'onglets en bas   // fond vert des listes types : posé par leur vue
   $$('.top-row .tnav').forEach(x => x.remove()); $('.top-row').classList.remove('has-nav', 'has-tgl');
   { const fr = $('#filter-rows'); fr.hidden = true; fr.innerHTML = ''; }   // lignes de filtres : propres à la liste complète d'Accès rapide   // flèches de durée : propres à la fenêtre d'un niveau
   libChrome(r);
+  { // page racine d'une rubrique : l'icône du menu, tout à gauche de la barre du haut (à la place du bouton retour)
+    const ico = r.name === 'journee' && !r.date ? '📅' : { afaire: '👁️', checklists: '☑️', memos: '📝' }[r.name] || (r.name === 'biblio' ? (libOverview ? '<b class="rb-star">★</b>' : '📚') : '');
+    const ti = $('#top-ico'); ti.innerHTML = ico; ti.hidden = !ico;
+  }
   setActions(null);
   VIEWS[r.name](app, r);
   syncTop();
@@ -361,8 +369,18 @@ function render() {
  *  - Flèche ▴/▾ : seulement si 1a ET 1b existent (il y a alors quelque chose à échanger) ; si ni 1a ni 1b, seule la ligne titre reste.
  * Tout est recalculé par syncTop() quand la page ou son contenu change (éditeur déplié / replié, etc.). */
 let topActions = [], fmtOpen = false;   // fmtOpen : l'utilisateur a choisi d'afficher 1b à la place de 1a (quand les deux existent)
+let topSubAlways = false;   // vrai : le sous-titre (date de la journée, résumé du planning) reste affiché même carte d'en-tête dépliée
+let titleEdit = null;       // action du stylo ✏️ du titre (renommer la journée / le planning)
 let topSub = '', topSubKeep = 'never';   // nom de l'élément en cours (note, journée), affiché sous le titre quand la carte d'en-tête est repliée, couleur = durée d'archivage
 function setSubtitle(t, item) { topSub = t || ''; topSubKeep = keepOf(item); syncTop(); }
+/** Titre des pages Journée / Planning : « icône + nom ✏️ » dans la barre du haut, avec la date (ou un résumé) juste dessous. */
+function setDayTitle({ icon, name, sub, item, onEdit }) {
+  titleEdit = onEdit || null;
+  const t = $('#view-title');
+  t.classList.add('tt');
+  t.innerHTML = `<span class="tt-ico">${icon}</span><span class="tt-name">${esc(name)}</span><span class="tt-pen" role="button" tabindex="0" aria-label="Modifier le nom" title="Modifier le nom">✏️</span>`;
+  topSub = sub || ''; topSubKeep = keepOf(item); topSubAlways = true; syncTop();
+}
 function setActions(list) {
   topActions = list || [];
   $('#top-actions').innerHTML = topActions.map((a, i) => `<button data-i="${i}" class="${a.cls || ''}"><span>${a.icon}</span>${esc(a.label)}</button>`).join('');
@@ -420,7 +438,7 @@ function syncTop() {
   $('.top-row2').classList.toggle('expanded', actionsExpanded);
   if (actionsExpanded) vis.style.setProperty('--cols', Math.min(3, Math.max(2, Math.floor((vis.clientWidth || 300) / 110))));
   document.body.toggleAttribute('data-hide-card', f.c);
-  const sub = $('#top-sub'); sub.textContent = topSub; sub.className = 'top-sub k-' + topSubKeep; sub.hidden = !(f.c && topSub);
+  const sub = $('#top-sub'); sub.textContent = topSub; sub.className = 'top-sub k-' + topSubKeep + (topSubAlways ? ' always' : ''); sub.hidden = !(topSub && (f.c || topSubAlways));
   document.body.toggleAttribute('data-sub', !sub.hidden);
   document.body.toggleAttribute('data-hide-row', f.r);
   if (f.r) $('#fmt-pop').hidden = true;
@@ -448,8 +466,8 @@ titleEl.addEventListener('pointerdown', e => {
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => titleEl.addEventListener(t, () => clearTimeout(pressTimer)));
 titleEl.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('resize', () => { if (actionsExpanded) syncTop(); });
-titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('button, a')) return; nav('#/menu'); });
-$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav('#/menu'); } });
+titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); return; } if (e.target.closest('button, a')) return; nav('#/menu'); });
+$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); } else nav('#/menu'); } });
 // un éditeur de texte qui apparaît / disparaît change la disponibilité de la ligne 1b
 new MutationObserver(syncTop).observe($('#app'), { childList: true, subtree: true });   // callbacks déjà groupés par le navigateur
 window.addEventListener('hashchange', () => { navCount++; foldIdx = 0; actionsExpanded = false; render(); });
@@ -464,6 +482,7 @@ $('#btn-gear').onclick = () => { const t = Date.now(); if (t - gearAt < 450) { g
 $('#btn-back').onclick = () => {
   const r = parseRoute();
   const n = r.name === 'note' ? noteById(r.id) : null;
+  if (r.name === 'journee' && r.date) return nav('#/journee');   // journée ouverte : retour direct à la racine Journée
   if (r.name === 'atheme' || r.name === 'atout' || (n && n.type === 'todo')) return nav('#/afaire');   // fenêtres À faire : retour direct à l'onglet racine (même après avoir circulé entre durées)
   if (navCount > 0) history.back(); else nav(n ? (n.type === 'checklist' ? '#/checklists' : n.type === 'todo' ? '#/afaire' : `#/memos/type/${n.type}`) : PARENT[r.name] || '#/memos');
 };

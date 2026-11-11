@@ -199,7 +199,7 @@ VIEWS.reglages = app => {
       <p class="meta">Chaque journée, note, check-liste, tâche et version a sa propre durée d’archivage, à régler dans le bandeau du haut (« Archive : … »). Un élément est <b>effacé quand il n’a pas été modifié</b> depuis cette durée. Les éléments existants et les nouveaux sont en « Illimitée ». Avec <b>« À la demande »</b>, rien n’est effacé tout seul : tu choisis une date (demain, 1 semaine, 1 mois, 1 an) et l’app te <b>propose</b> alors de supprimer, de reporter ou de garder.</p>
       ${KEEP_ORDER.map(k => `<div class="item kc k-${k}" style="padding:6px 10px;margin-top:6px;background:rgba(120,120,120,.1);border-radius:8px"><strong>${esc(KEEP[k].label)}</strong><span class="meta">— ${esc(KEEP[k].desc)}</span></div>`).join('')}</div>
 
-    <div class="card"><h3>❗ Conservation des notes À faire</h3>
+    <div class="card"><h3>👁️ Conservation des notes À faire</h3>
       <p class="meta">Durée (en jours) avant effacement d’une note sans modification, selon son niveau. <b>0 = illimitée.</b> S’applique aux notes créées ou changées de niveau ensuite.</p>
       ${todoLevels().map(l => `<label class="row" style="margin-top:6px"><span class="grow">${l.icon} ${esc(l.label)}</span><input type="number" min="0" max="3650" inputmode="numeric" data-ld="${l.id}" value="${levelDays(l.id)}" style="width:90px"></label>`).join('')}</div>
 

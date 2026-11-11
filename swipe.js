@@ -28,7 +28,7 @@ function swipeGo(dir) {
     const t = e.touches[0], el = e.target;
     if (t.clientX < 24) return;   // bord gauche : geste « retour » d'iOS
     if (!$('#sheet').hidden || !$('#pop').hidden) return;
-    if (!el.closest || el.closest('input, textarea, select, [contenteditable], audio, .topbar, .tabbar, .selbar, .moving, .dragging, .lifting') || hScroller(el)) return;
+    if (!el.closest || el.closest('input, textarea, select, [contenteditable], audio, .topbar, .tabbar, .selbar, .moving, .dragging, .lifting, .bloc .time, .amelio') || hScroller(el)) return;
     armed = true; sx = t.clientX; sy = t.clientY; st = Date.now();
   }, { passive: true });
   document.addEventListener('touchend', e => {

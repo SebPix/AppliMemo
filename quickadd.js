@@ -1,6 +1,6 @@
 /* Onglet « ＋ » (à gauche de la barre du bas) : menu pour créer n'importe quoi en un geste.
  *   Journée      › Aujourd'hui · Date à définir · Journée type
- *   À faire      › Urgentissime · Urgent · Moyen terme · Long terme · Note personnalisée   (en préparation : voir TODO_QUICK)
+ *   À faire      › Urgentissime · Urgent · Moyen terme · Long terme · Nouvelle thématique   (en préparation : voir TODO_QUICK)
  *   Check-listes › Nouvelle · Depuis une liste type
  *   Mémo         › tous les types de mémo */
 'use strict';
@@ -13,12 +13,13 @@ const TODO_QUICK = [
   { id: 'moyen', icon: '🌱', label: 'Moyen terme' },
   { id: 'long', icon: '🌲', label: 'Long terme' },
   { id: 'infini', icon: '♾️', label: 'Infini' },
-  { id: 'perso', icon: '✏️', label: 'Note personnalisée' },
+  { id: 'perso', icon: '🏷️', label: 'Nouvelle thématique' },
 ];
 
 function quickTodo(level) {
   closeSheet();
-  if (level === 'perso') nav('#/afaire'); else openLevelNote(level);   // ouverture directe de la note du niveau
+  if (level === 'perso') { nav('#/afaire'); setTimeout(addThemeSheet, 80); }   // page À faire, puis fenêtre « Nouvelle thématique »
+  else openLevelNote(level);   // ouverture directe de la note du niveau
 }
 
 /** Journée type : choisit la date puis le modèle. */

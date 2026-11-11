@@ -60,10 +60,12 @@ textarea { resize: vertical; min-height: 120px; }
 
 /* --- Blocs --- */
 .bloc { border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); transition: box-shadow .15s; }
-.bloc.dragging { box-shadow: 0 8px 20px rgba(0,0,0,.3); opacity: .92; position: relative; z-index: 5; }
+.bloc.dragging { box-shadow: 0 8px 20px rgba(0,0,0,.3); opacity: .92; position: relative; z-index: 5; transition: none; }
 .bloc-head { display: flex; align-items: center; gap: 4px; padding: 6px; }
 .bloc-head button { background: rgba(255,255,255,.55); min-width: 38px; padding: 6px; }
-.bloc-head .handle { touch-action: none; cursor: grab; }
+.bloc-head .time { touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.bloc.shifting { transition: transform .15s; }
+.bloc-head [data-act=color] { font-size: 20px; line-height: 1; }
 .bloc-head .time { min-width: 56px; font-variant-numeric: tabular-nums; font-size: 14px; }
 .bloc-head input.titre { flex: 1; min-width: 0; background: rgba(255,255,255,.7); font-weight: 600; }
 .bloc-body { padding: 0 8px 10px; }
@@ -284,6 +286,9 @@ details.tree details.tree .lrow.kc { border-left-width: 4px; }
 
 /* --- Journée : titre coloré selon la durée d'archivage (gris = 1 semaine, etc.) --- */
 .day-title { margin: 0; font-size: 24px; line-height: 1.2; color: var(--kc); color: color-mix(in srgb, var(--kc) 82%, #000); }
+.day-title-row { display: flex; align-items: center; gap: 8px; }
+.day-title-row .day-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.day-title-row .icon-btn { flex: none; font-size: 18px; padding: 4px 8px; box-shadow: none; background: transparent; color: var(--ink); }
 .day-head .date-label { margin: 2px 0 6px; font-size: 13px; color: var(--muted); }
 .day-head .meta { margin: 0 0 6px; }
 
@@ -380,6 +385,22 @@ body[data-sub] .top-row h1 { top: calc(50% - 7px); }
   text-align: left; font-size: 15px; border-bottom: 1px solid var(--line); }
 .qa-row span { width: 1.4em; text-align: center; flex: none; }
 .qa-row:active { background: rgba(127,127,127,.15); }
+/* Menu ＋ Créer : chaque section reprend les couleurs de sa rubrique (titre = barre, lignes = fond de page) */
+.qa-sec[data-g=journee]    { --sbar: #ed1a1a; --sbg: #f2a7a7; }
+.qa-sec[data-g=afaire]     { --sbar: #1a6bed; --sbg: #d9e7fc; }
+.qa-sec[data-g=checklists] { --sbar: #15cf5c; --sbg: #aef2c8; }
+.qa-sec[data-g=memos]      { --sbar: #e39f17; --sbg: #fadb9d; }
+.qa-sec { border-radius: 10px; overflow: hidden; margin-top: 8px; background: var(--sbg); }
+.qa-sec:first-child { margin-top: 0; }
+.qa-sec .qa-h, .qa-sec:first-child .qa-h { background: var(--sbar); color: #fff; padding: 6px 10px; }
+:root[data-theme] .qa-sec .qa-row { padding-inline: 10px; color: #222; border-bottom-color: rgba(0,0,0,.12); }
+:root[data-theme] .qa-sec .qa-row:last-child { border-bottom: 0; }
+:root[data-theme=dark] .qa-sec { background: var(--card); }
+:root[data-theme=dark] .qa-sec .qa-row { color: var(--ink); border-bottom-color: var(--line); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme=auto] .qa-sec { background: var(--card); }
+  :root[data-theme=auto] .qa-sec .qa-row { color: var(--ink); border-bottom-color: var(--line); }
+}
 
 /* --- Bibliothèque : « 1/2 » discret en haut à droite, étoile arc-en-ciel de l'onglet Accès rapide --- */
 .tabbar button .ic { position: relative; display: inline-block; }
@@ -773,3 +794,107 @@ details.tree.s-journee, details.tree.s-afaire, details.tree.s-checklists, detail
 @media (max-width: 420px) {
   .lvl-tiles.lvl-tall .lvl-tile strong { font-size: 13px; word-break: normal; overflow-wrap: normal; }
 }
+
+/* Fenêtre « Horaire » : bouton horloge à gauche (ouvre les roulettes), puis heures et minutes à saisir */
+.time-pick { display: flex; align-items: center; gap: 10px; }
+.time-pick .tp-ico { flex: none; font-size: 26px; line-height: 1; padding: 8px 12px; border-radius: 12px; }
+.time-pick input { flex: 1; min-width: 0; font-size: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.time-pick .tp-sep, .wheels .tp-sep { font-size: 20px; font-weight: 700; flex: none; }
+.wheels { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+.wheels[hidden] { display: none; }
+.wheel { position: relative; z-index: 1; width: 90px; height: 208px; overflow-y: auto; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; overscroll-behavior: contain; touch-action: pan-y; }
+.wheel::-webkit-scrollbar { display: none; }
+.wheel-pad { height: 84px; }
+.wheel-it { cursor: pointer; height: 40px; line-height: 40px; text-align: center; font-size: 22px; font-variant-numeric: tabular-nums; scroll-snap-align: center; }
+.wheel-band { position: absolute; left: 12%; right: 12%; top: 84px; height: 40px; border-radius: 10px; background: rgba(127,127,127,.2); pointer-events: none; }
+
+/* Bouton « i » (infos de suppression) à droite du stylo : cercle parfait, plein quand l'info est affichée */
+.day-head .info-btn { flex: none; box-sizing: border-box; width: 26px; height: 26px; min-width: 26px; min-height: 0; aspect-ratio: 1; padding: 0; border-radius: 50%;
+  border: 1.5px solid var(--muted); background: transparent; color: var(--muted); box-shadow: none;
+  font: italic 700 15px/1 Georgia, serif; display: inline-flex; align-items: center; justify-content: center; }
+.day-head .info-btn.on { background: var(--muted); color: var(--card); }
+.day-head .day-info { margin: 0 0 8px; }
+
+/* JOURNÉE : 4 boutons sur une même ligne (Aujourd'hui · Date à définir · Journée type · Planning) */
+.choose4 { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.choose4 .bigcard { padding: 10px 2px; font-size: 11.5px; line-height: 1.2; min-height: 84px; }
+.choose4 .bigcard .bi { font-size: 24px; }
+
+/* PLANNING : barre de journées collée sous l'en-tête, journées empilées et aimantées en haut de page */
+html.plan-snap, html.plan-snap body { scroll-snap-type: y proximity; }
+.plan-bar { position: fixed; top: var(--toph, 52px); left: 0; right: 0; z-index: 15; height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  background: var(--sbg, var(--bg)); box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+.plan-spacer { height: 56px; }
+.plan-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px 0; }
+.plan-chips::-webkit-scrollbar { display: none; }
+.plan-chip { flex: none; min-height: 36px; padding: 4px 12px; border-radius: 18px; background: rgba(255,255,255,.7); color: #2b2b2b; font-size: 14px; white-space: nowrap; text-transform: capitalize; }
+.plan-chip.today { font-weight: 700; }
+.plan-chip.on { background: var(--sbar, var(--gold)); color: #fff; }
+.plan-add { flex: none; width: 38px; height: 38px; min-height: 0; padding: 0; border-radius: 50%; background: var(--sbar, var(--gold)); color: #fff; font-size: 24px; line-height: 1; }
+.day-sec { scroll-snap-align: start; scroll-margin-top: calc(var(--toph, 52px) + 62px); margin-bottom: 18px; }
+.plan-days { padding-bottom: 55vh; }
+.day-title-row .b-remove { font-size: 15px; }
+
+/* À FAIRE : « ＋ Thématique » parmi les thématiques (jaune clair) ; « Toutes les tâches » dans la grille des durées */
+:root[data-theme] .theme-tiles .theme-new { background: #fdf0b4; color: #2b2b2b; }
+:root[data-theme] .theme-tiles .theme-new .meta { color: #6b5d1f; }
+:root[data-theme] .theme-tiles .theme-new strong, .theme-tiles .theme-new .meta { word-break: normal; overflow-wrap: normal; }
+
+/* Barre du haut des pages Journée / Planning : « icône + nom ✏️ », la date (ou le résumé) est dans .top-sub juste dessous */
+.top-row h1.tt { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tt .tt-ico { flex: none; font-size: 18px; }
+.tt .tt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .02em; }
+.tt .tt-pen { flex: none; font-size: 14px; padding: 4px 4px; cursor: pointer; line-height: 1; }
+/* sous la barre : seulement les boutons, en bandeau compact */
+.day-head .actions { margin-top: 0; }
+.day-head .actions .info-btn { flex: none; }
+.day-head .day-info { margin: 8px 2px 0; }
+.plan-row .plan-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-sub.always, :root[data-theme] .top-sub.always { color: rgba(255,255,255,.92); font-weight: 600; }
+
+/* AMÉLIORATIONS : bouton d'accueil (à droite de ＋ Créer) et bloc-notes latéral propre à chaque page */
+.menu-small.menu-amelio { width: 90px; padding-inline: 2px; font-size: 10.5px; }
+.menu-small.menu-amelio.on { background: #f4d35e; color: #2b2b2b; box-shadow: 0 0 0 2px #c4a33f inset, 0 1px 4px rgba(0,0,0,.2); }
+.amelio { position: fixed; left: 0; top: 10%; height: 80%; z-index: 70; display: flex; align-items: stretch; pointer-events: none; }
+.amelio[hidden] { display: none; }
+.amelio > * { pointer-events: auto; }
+.amelio .am-bar { flex: none; width: 30px; display: flex; flex-direction: column; border-radius: 0 12px 12px 0; overflow: hidden; box-shadow: 2px 0 8px rgba(0,0,0,.25); }
+.amelio .am-off { flex: none; width: 100%; min-height: 0; height: 36px; padding: 0; border-radius: 0; background: #f4d35e; color: #2b2b2b; font-size: 18px; border-top: 1px solid rgba(0,0,0,.18); }
+.amelio .am-tab { flex: 1; min-height: 0; width: 100%; padding: 0; border-radius: 0; background: #f4d35e; color: #2b2b2b;
+  display: flex; align-items: center; justify-content: center; }
+.amelio .am-tab span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px; font-weight: 700; letter-spacing: .05em; white-space: nowrap; }
+.amelio.has .am-tab { background: #e9b824; }
+.amelio.has .am-tab span::after { content: ' ●'; }
+.amelio .am-panel { width: 0; overflow: hidden; background: rgba(255,255,255,.85); background: color-mix(in srgb, var(--card, #fff) 85%, transparent); color: var(--ink, #222); display: flex; flex-direction: column;
+  border-radius: 0 12px 12px 0; box-shadow: 4px 0 16px rgba(0,0,0,.3); transition: width .25s ease; }
+.amelio.open .am-panel { width: min(calc(100vw - 42px), 560px); }
+.amelio .am-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(244,211,94,.85); color: #2b2b2b; min-width: 240px; }
+.amelio .am-title { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.amelio .am-close { flex: none; min-height: 0; padding: 4px 10px; background: rgba(0,0,0,.12); color: #2b2b2b; }
+.amelio .am-text { flex: 1; min-height: 0; min-width: 240px; resize: none; border: 0; border-radius: 0; padding: 12px; font-size: 16px; line-height: 1.45; background: transparent; color: inherit; outline: none; }
+@media (prefers-reduced-motion: reduce) { .amelio .am-panel { transition: none; } }
+
+/* Rétractée : la languette ne garde que la hauteur du texte « Améliorations » (centrée verticalement, sans l'ampoule) ; déployée : 80 % de la hauteur, avec l'ampoule */
+.amelio:not(.open) { top: 50%; height: auto; transform: translateY(-50%); }
+.amelio:not(.open) .am-off { display: none; }
+.amelio:not(.open) .am-tab { flex: none; padding: 14px 0; }
+
+/* Icône de la rubrique, tout à gauche de la barre du haut sur sa page racine */
+.top-ico { flex: none; width: 36px; text-align: center; font-size: 24px; line-height: 1; }
+.top-ico[hidden] { display: none; }
+
+/* À FAIRE (racine) : contour bleu (couleur de la barre du haut) sur « Toutes les tâches » */
+:root[data-theme] #all-todo.lvl-tile { box-shadow: inset 0 0 0 2.5px var(--sbar, #1a6bed); }
+
+/* Flèches ◀ ▶ de À faire : collées au titre de référence « À FAIRE 🧐 Toutes les tâches » (largeur mesurée en JS → --navhalf), donc fixes d'une fenêtre à l'autre */
+.top-row.has-nav .tnav-l { left: auto; right: calc(50% + var(--navhalf, 90px) + 4px); }
+.top-row.has-nav .tnav-r { right: auto; left: calc(50% + var(--navhalf, 90px) + 4px); }
+.top-row.has-nav h1 { max-width: calc(var(--navhalf, 90px) * 2); }
+/* titre de À faire un peu plus compact pour que « À FAIRE 🧐 Toutes les tâches » tienne entre les deux flèches */
+.top-row.has-nav h1 { letter-spacing: .03em; }
+.top-row.has-nav h1 .title-pill { padding: 2px 7px; margin-left: 5px; }
+
+/* « Toutes les tâches » : les deux boutons « Toutes » sur 2 lignes, le complément (durées / thématiques) en plus petit */
+.chiprow { align-items: center; }
+.chiprow .chip.two { line-height: 1.1; padding-block: 3px; }
+.chiprow .chip .c2 { display: block; font-size: 10px; font-weight: 500; opacity: .9; }
