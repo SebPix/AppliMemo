@@ -753,3 +753,23 @@ body[data-sect=quick] .vsep { background: rgba(0,0,0,.35); }
 #app[data-slide=next] { animation: slide-next .22s ease-out; }
 #app[data-slide=prev] { animation: slide-prev .22s ease-out; }
 @media (prefers-reduced-motion: reduce) { #app[data-slide] { animation: none; } }
+
+/* Accès rapide : chaque ligne prend la couleur de sa rubrique (fond de page : Journée rose, À faire bleu, Check-listes vert, Mémos orange) ;
+   le liseré de gauche garde la couleur de durée d'archivage. À faire : cases de durées et de thématiques en bleu. Thème sombre : sans couleur. */
+.s-journee { --sc: #f2a7a7; } .s-afaire { --sc: #d9e7fc; } .s-checklists { --sc: #aef2c8; } .s-memos { --sc: #fadb9d; }
+.lrow.s-journee, .lrow.s-afaire, .lrow.s-checklists, .lrow.s-memos { background: var(--sc, var(--card)); }
+:root[data-theme] body[data-sect=quick] .lvl-tile, :root[data-theme] body[data-sect=quick] .theme-tile { background: #d9e7fc; }
+:root[data-theme=dark] .s-journee, :root[data-theme=dark] .s-afaire, :root[data-theme=dark] .s-checklists, :root[data-theme=dark] .s-memos { --sc: var(--card); }
+:root[data-theme=dark] body[data-sect=quick] .lvl-tile, :root[data-theme=dark] body[data-sect=quick] .theme-tile { background: var(--card); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme=auto] .s-journee, :root[data-theme=auto] .s-afaire, :root[data-theme=auto] .s-checklists, :root[data-theme=auto] .s-memos { --sc: var(--card); }
+  :root[data-theme=auto] body[data-sect=quick] .lvl-tile, :root[data-theme=auto] body[data-sect=quick] .theme-tile { background: var(--card); }
+}
+
+/* Bibliothèque : chaque grande section (Journées, À faire, Check-listes, Mémos) prend la couleur de sa rubrique ; ses lignes et sous-sections restent transparentes dessus */
+details.tree.s-journee, details.tree.s-afaire, details.tree.s-checklists, details.tree.s-memos { background: var(--sc, var(--card)); }
+
+/* cases de durée (À faire / Accès rapide) : jamais de mot coupé en deux sur écran étroit */
+@media (max-width: 420px) {
+  .lvl-tiles.lvl-tall .lvl-tile strong { font-size: 13px; word-break: normal; overflow-wrap: normal; }
+}

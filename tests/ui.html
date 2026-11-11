@@ -194,9 +194,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
         click($$('.card.todo')[0].querySelector('[data-themepick]')); await wait(30); click('#sheet [data-t=""]'); await wait(40);
         ok(!TNn().data.items.find(i => i.id === tid0).theme, 'À faire : retour à ∅'); }
       ok($$('#top-actions button').some(b => b.innerText.trim() === '∅'), 'À faire : « ∅ » = thématique supplémentaire (sans thématique) en ligne 1a');
-      click('#sheet [data-no]');
+      if ($('#sheet [data-no]')) click('#sheet [data-no]');
       // thématiques : défauts, ajout, filtre, renommage, suppression
-      const chips = () => $$('#top-actions button').map(b => b.innerText.trim());
+      const chips = () => $$('#top-actions button').map(b => b.innerText.trim()).filter(t => !/Insérer une Check-liste|Agenda/.test(t));   // hors boutons communs (check-liste, Agenda), testés à part
       ok(chips().join('|') === 'Toutes|Travail|Maison|Perso|∅|＋' && $('.theme-title').innerText === 'Toutes notes', 'À faire : 1a = Toutes / Travail / Maison / Perso / ＋ ; titre « Toutes notes »');
       ok(!$('#n-title') && $('#view-title').innerText.includes('À FAIRE') && $('#view-title .title-pill').innerText.includes('Urgent') && getComputedStyle($('#view-title .title-pill')).backgroundColor === 'rgb(255, 255, 255)', 'À faire : icône du niveau à gauche du titre, pas de carte de nom');
       click($$('#top-actions button').find(b => b.innerText.trim() === 'Travail')); await wait(40);
@@ -234,10 +234,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
       ok(!$('#sheet form') && nowN && nowN.title === 'NOW' && w.location.hash === '#/note/' + nowN.id, 'À faire : la case NOW ouvre directement la note NOW');
       await go('#/afaire'); click('#app [data-lvl=urgentissime]'); await wait(100);
       ok(S().notes.filter(n => n.type === 'todo' && n.data.level === 'urgentissime').length === 1, 'À faire : une seule note par niveau');
-      ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Check-liste'), 'NOW : bouton « Check-liste » en ligne 1a');
+      ok(!$('#top-actions').hidden && $('#top-actions').innerText.includes('Insérer une Check-liste'), 'NOW : bouton « Insérer une Check-liste » en ligne 1a');
       const impN = w.eval("(() => { const x = newNote('checklist', 'Import test'); x.data.items = [{ id: 'ia', t: 'A', done: false }, { id: 'ib', t: 'B', done: true }]; save(); return x; })()"); w.eval('render()'); await wait(40);
       click($$('#top-actions button').find(b => b.innerText.includes('Check-liste'))); await wait(40);
-      ok($('#sheet').innerText.includes('Importer le contenu d’une check-liste'), 'NOW : fenêtre « importer le contenu d\'une check-liste »');
+      ok($('#sheet').innerText.includes('Insérer une check-liste'), 'NOW : fenêtre « insérer une check-liste »');
       { const src = S().notes.find(x => x.id === impN.id); ok(!!src && !!$('#sheet [data-src="' + src.id + '"]') && !!$('#sheet [data-tpl]'), 'NOW : check-listes + listes types proposées');
         click('#sheet [data-src="' + src.id + '"]'); await wait(80);
         const blk = nowN.data.items.find(i => i.cl);
@@ -246,6 +246,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
         ok(!$('.clblock .clbody'), 'NOW : la ligne se replie (flèche)');
         w.eval('render()'); await wait(40); ok(!$('.clblock .clbody'), 'NOW : une ligne existante est repliée par défaut');
         click('.clblock [data-del]'); await wait(30); w.eval("kill(noteById('" + impN.id + "')); save(); render()"); await wait(30); }
+      { // toutes les fenêtres À faire (pas seulement NOW) : insérer une check-liste ; la note peut aller dans Google Agenda
+        await go('#/afaire'); click('#app [data-lvl=urgent]'); await wait(100);
+        const un = S().notes.find(n => n.type === 'todo' && n.data.level === 'urgent');
+        const ta = () => $('#top-actions').innerText;
+        ok(ta().includes('Insérer une Check-liste') && ta().includes('Agenda') && ta().includes('Toutes'), 'Urgent : « Insérer une Check-liste » et « Agenda » dans la ligne 1a, avec les thématiques');
+        click($$('#top-actions button').find(b => b.innerText.includes('Agenda'))); await wait(60);
+        ok($('#sheet').innerText.includes('Note À faire dans Google Agenda') && !!$('#sheet input[type=date]'), 'Urgent : « Agenda » propose une date pour la note À faire');
+        w.eval('closeSheet()');
+        w.eval("noteById('" + un.id + "').cal = '2030-05-06'");
+        ok(w.eval("Gcal.desired().has('n:" + un.id + "')") && w.eval("Gcal.desired().get('n:" + un.id + "').start.date") === '2030-05-06', 'note À faire datée : envoyée à Google Agenda (événement du 06/05/2030)');
+        w.eval("noteById('" + un.id + "').cal = undefined");
+        const cl2 = w.eval("(() => { const x = newNote('checklist', 'Insertion Urgent'); x.data.items = [{ id: 'ua', t: 'A', done: false }]; save(); return x; })()"); w.eval('render()'); await wait(40);
+        click($$('#top-actions button').find(b => b.innerText.includes('Insérer une Check-liste'))); await wait(40);
+        click('#sheet [data-src="' + cl2.id + '"]'); await wait(80);
+        ok(!!un.data.items.find(i => i.cl) && !!$('.clblock') && !!$('.clblock [data-themepick]'), 'Urgent : une check-liste est insérée (avec choix de thématique)');
+        w.eval("noteById('" + un.id + "').data.items = []; save(); render()"); await wait(30);
+      }
       click('#tab-add'); click('#sheet [data-qa=t-infini]'); await wait(100);
       ok(!$('#sheet form') && S().notes.some(n => n.type === 'todo' && n.data.level === 'infini') && $('#view-title .title-pill').innerText.includes('Infini'), 'Menu ＋ › Infini : ouvre directement la note infini');
       type('#todo-new', 'Pour toujours'); submit($('#todo-form'));

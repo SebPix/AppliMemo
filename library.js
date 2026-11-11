@@ -47,14 +47,15 @@ function runSearch(E, q) {
 }
 
 /* ---------- Vue Bibliothèque ---------- */
+const entrySect = e => e.date ? 's-journee' : e.type === 'todo' ? 's-afaire' : e.type === 'checklist' ? 's-checklists' : e.type ? 's-memos' : '';   // rubrique d'une entrée de l'index
 const row = (e, snip) => {
   const inner = `<span>${e.icon}</span><span class="grow" style="min-width:0"><strong>${esc(e.title)}</strong>${e.sub ? ` <span class="meta">· ${esc(e.sub)}</span>` : ''}
     ${snip ? `<div class="meta">${esc(snip)}</div>` : ''}</span><span class="meta">${esc(e.meta || '')}</span>`;
   return libSelect
-    ? `<label class="lrow item ${e.keep ? 'kc k-' + e.keep : ''}"><input type="checkbox" data-sel="${e.key}" ${libSel.has(e.key) ? 'checked' : ''}> ${inner}</label>`
-    : `<a class="lrow item ${e.keep ? 'kc k-' + e.keep : ''}" href="${e.href}">${inner}</a>`;
+    ? `<label class="lrow item ${e.keep ? 'kc k-' + e.keep : ''} ${entrySect(e)}"><input type="checkbox" data-sel="${e.key}" ${libSel.has(e.key) ? 'checked' : ''}> ${inner}</label>`
+    : `<a class="lrow item ${e.keep ? 'kc k-' + e.keep : ''} ${entrySect(e)}" href="${e.href}">${inner}</a>`;
 };
-const section = (k, icon, title, count, body, keys) => `<details data-k="${k}" ${libOpen.has(k) ? 'open' : ''} class="tree">
+const section = (k, icon, title, count, body, keys, cls = '') => `<details data-k="${k}" ${libOpen.has(k) ? 'open' : ''} class="tree ${cls}">
   <summary><span>${icon} ${esc(title)}</span><span class="meta">${count}</span>${libSelect && keys && keys.length ? `<button class="mini" data-all="${esc(keys.join(','))}">tout</button>` : ''}</summary>${body}</details>`;
 
 function drawLibrary() {
@@ -81,13 +82,13 @@ function drawLibrary() {
     const byType = t => E.filter(e => e.type === t);
     body.innerHTML = [
       section('days', '📅', 'Journées', days.length, days.length ? [...months].map(([m, list]) =>
-        section('m:' + m, '', `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`, list.length, list.map(e => row(e)).join(''), list.map(e => e.key))).join('') : '<p class="empty small">Aucune journée.</p>', days.map(e => e.key)),
-      section('todo', '❗', 'À faire', byType('todo').length, byType('todo').length ? byType('todo').map(e => row(e)).join('') : '<p class="empty small">Aucune note À faire.</p>', byType('todo').map(e => e.key)),
-      section('checks', '☑️', 'Check-listes', byType('checklist').length, byType('checklist').length ? byType('checklist').map(e => row(e)).join('') : '<p class="empty small">Aucune check-liste.</p>', byType('checklist').map(e => e.key)),
+        section('m:' + m, '', `${MOIS[+m.slice(5) - 1]} ${m.slice(0, 4)}`, list.length, list.map(e => row(e)).join(''), list.map(e => e.key))).join('') : '<p class="empty small">Aucune journée.</p>', days.map(e => e.key), 's-journee'),
+      section('todo', '❗', 'À faire', byType('todo').length, byType('todo').length ? byType('todo').map(e => row(e)).join('') : '<p class="empty small">Aucune note À faire.</p>', byType('todo').map(e => e.key), 's-afaire'),
+      section('checks', '☑️', 'Check-listes', byType('checklist').length, byType('checklist').length ? byType('checklist').map(e => row(e)).join('') : '<p class="empty small">Aucune check-liste.</p>', byType('checklist').map(e => e.key), 's-checklists'),
       section('memos', '📝', 'Mémos', E.filter(e => e.type && e.type !== 'checklist' && e.type !== 'todo').length, MEMO_TYPES.map(t => {
         const l = byType(t);
         return section('type:' + t, TYPE_META[t].icon, TYPE_META[t].label, l.length, l.length ? l.map(e => row(e)).join('') : '<p class="empty small">Vide.</p>', l.map(e => e.key));
-      }).join('')),
+      }).join(''), null, 's-memos'),
       section('themes', '#', 'Thèmes', tags.length, tags.length ? `<div class="tags" style="padding:6px 10px">${tags.map(t =>
         `<a class="chip" href="#/tag/${encodeURIComponent(t.key)}">#${esc(t.label)} <span class="meta">${t.count}</span></a>`).join('')}</div>`
         : '<p class="empty small">Écris <b>#mot</b> dans n’importe quelle note : il apparaîtra ici.</p>'),
@@ -125,6 +126,9 @@ function libChrome() {
   if (tb.dataset.h !== html) { tb.dataset.h = html; tb.innerHTML = html; }   // ne réécrit que si ça change : sinon la cible d'un clic sur l'icône disparaît entre appui et relâchement
 }
 
+/** Rubrique d'une note (couleur de ses lignes dans Accès rapide : s-journee, s-afaire, s-checklists, s-memos). */
+const noteSect = n => n.type === 'todo' ? 's-afaire' : n.type === 'checklist' ? 's-checklists' : 's-memos';
+
 /** Liste complète : toutes les notes, la plus récemment modifiée en premier, filtrable par mot-clé. */
 /** Tous les éléments (notes + journées) avec de quoi filtrer : catégorie, durabilité, thématiques (#mots-clés et thématiques À faire). */
 function fullItems() {
@@ -132,10 +136,10 @@ function fullItems() {
   return [...liveNotes().map(n => ({ at: n.updatedAt, name: noteTitle(n), cat: n.type === 'todo' ? 'À faire' : TYPE_META[n.type].label, keep: keepOf(n),
       themes: themesOf(noteTitle(n) + '\n' + noteText(n), n.type === 'todo' ? [...new Set(n.data.items.map(i => i.theme).filter(Boolean))] : []),
       hay: norm(noteTitle(n) + ' ' + noteText(n)),
-      html: `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : noteIcon(n)}</span><span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(n.type === 'todo' ? 'À faire' : TYPE_META[n.type].label)}</span></a>` })),
+      html: `<a class="card item lrow ${keepClass(n)} ${noteSect(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : noteIcon(n)}</span><span class="grow">${esc(noteTitle(n))}</span><span class="meta">${esc(n.type === 'todo' ? 'À faire' : TYPE_META[n.type].label)}</span></a>` })),
     ...liveDays().map(d => { const bl = blocsOf(d), title = longDate(d.date), txt = [d.subtitle, ...bl.map(x => x.titre + ' ' + x.texte)].join('\n');
       return { at: d.updatedAt, name: d.date, cat: 'Journées', keep: keepOf(d), themes: themesOf(txt), hay: norm([title, d.date, txt].join(' ')),
-        html: `<a class="card item lrow ${keepClass(d)}" href="#/journee/${d.date}"><span>📅</span><span class="grow">${esc(title)}</span><span class="meta">Journée</span></a>` }; })];
+        html: `<a class="card item lrow ${keepClass(d)} s-journee" href="#/journee/${d.date}"><span>📅</span><span class="grow">${esc(title)}</span><span class="meta">Journée</span></a>` }; })];
 }
 /* Filtres de la liste complète : la ligne 1a porte les rubriques ; chacune déploie ses propositions sur une ligne en dessous (plusieurs choix possibles). */
 const libFilt = { cat: new Set(), keep: new Set(), th: new Set(), sort: 'mod' };
@@ -195,8 +199,8 @@ function libraryOverview(app) {
   }
   const notes = liveNotes(), byMod = (x, y) => y.updatedAt - x.updatedAt;
   const favs = notes.filter(n => n.fav).sort(byMod), recents = [...notes, ...liveDays().map(d => ({ day: d, updatedAt: d.updatedAt }))].sort(byMod);   // notes ET journées enregistrées
-  const link = n => n.day ? `<a class="card item lrow ${keepClass(n.day)}" href="#/journee/${n.day.date}"><span>📅</span><span class="grow">${esc(longDate(n.day.date))}</span></a>`
-    : `<a class="card item lrow ${keepClass(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : noteIcon(n)}</span><span class="grow">${esc(noteTitle(n))}</span></a>`;
+  const link = n => n.day ? `<a class="card item lrow ${keepClass(n.day)} s-journee" href="#/journee/${n.day.date}"><span>📅</span><span class="grow">${esc(longDate(n.day.date))}</span></a>`
+    : `<a class="card item lrow ${keepClass(n)} ${noteSect(n)}" href="#/note/${n.id}"><span>${n.fav ? '★' : noteIcon(n)}</span><span class="grow">${esc(noteTitle(n))}</span></a>`;
   const lnotes = levelNotes(), levelTiles = todoLevels().map(l => {
     const n = lnotes.find(x => x.data.level === l.id), c = n ? openCount(n) : 0;
     return `<button type="button" class="tile lvl-tile" data-lvl="${l.id}"><span class="ti">${l.icon}</span><strong>${l.id === 'urgentissime' ? 'Urgentissime (NOW)' : esc(l.label)}</strong>
@@ -212,7 +216,7 @@ function libraryOverview(app) {
     <div id="quick-body"><div class="h2">★ Favoris</div>${part(favs, 'fav', 'Aucun favori. Touche ☆ dans une note pour en ajouter.')}
     <div class="h2">Récents</div>${part(recents, 'rec', 'Aucune note pour l’instant.')}
     <div class="h2">À faire</div>
-    <div class="tiles lvl-tiles">${levelTiles}</div>
+    <div class="tiles lvl-tiles lvl-tall">${levelTiles}</div>
     <div class="theme-block"><div class="h2">Thématiques</div>
     <div class="theme-tiles">${thShown.map(t => `<button type="button" class="tile theme-tile${t === '' ? ' no-theme' : ''}" data-theme="${esc(t)}"><strong>${t === '' ? NO_THEME : esc(t)}</strong><span class="meta">${themeEntries(t, '').filter(e => !e.t.done).length}</span></button>`).join('')}</div>
     ${ths.length > 8 ? `<button type="button" class="more-row" data-more="th">${qMore.th ? 'Afficher moins ▴' : `Afficher plus (${ths.length - 8}) ▾`}</button>` : ''}</div></div>`;

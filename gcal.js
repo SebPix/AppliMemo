@@ -63,7 +63,8 @@ const Gcal = (() => {
     if (n.type === 'password') return '';
     if (n.type === 'divers' || n.type === 'ecritures') return d.text;
     if (n.type === 'checklist') return d.items.map(i => (i.blk ? i.t : box(i) + i.t)).join('\n');
-    if (n.type === 'todo') return d.items.map(i => box(i) + (i.t || '') + (i.note && i.note.trim() ? '\n   ' + i.note.trim().replace(/\n/g, '\n   ') : '')).join('\n');
+    if (n.type === 'todo') return d.items.map(i => (i.cl ? '☑️ ' + (i.t || 'Check-liste') + '\n' + i.cl.items.map(c => '   ' + (c.blk ? c.t : box(c) + c.t)).join('\n')   // check-liste insérée : son contenu en retrait
+      : box(i) + (i.t || '') + (i.note && i.note.trim() ? '\n   ' + i.note.trim().replace(/\n/g, '\n   ') : ''))).join('\n');
     return noteText(n);
   }
   /** Tous les événements que l'état actuel demande : Map clé → événement. */
@@ -224,7 +225,7 @@ const Gcal = (() => {
       clear: () => { delete t.cal; delete t.calTime; touch(e.n); save(); after && after(); } });
   }
   function noteSheet(n, after) {
-    dateSheet({ title: 'Mémo dans Google Agenda', cur: n, url: linkNote(n.id),
+    dateSheet({ title: n.type === 'todo' ? 'Note À faire dans Google Agenda' : 'Mémo dans Google Agenda', cur: n, url: linkNote(n.id),
       set: (d, h) => { n.cal = d; if (h) n.calTime = h; else delete n.calTime; touch(n); save(); after && after(); },
       clear: () => { delete n.cal; delete n.calTime; touch(n); save(); after && after(); } });
   }

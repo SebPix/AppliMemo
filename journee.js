@@ -402,6 +402,12 @@ function titleArrows(cur) {
   });
 }
 
+/** Boutons communs à toutes les fenêtres À faire : insérer une check-liste ; partager la note (échéance) dans Google Agenda. */
+const levelActions = n => [
+  { icon: '☑️', label: 'Insérer une Check-liste', fn: () => importChecklistSheet(n) },
+  { icon: n.cal ? '📆✓' : '📆', label: 'Agenda', fn: () => Gcal.noteSheet(n, () => render()) },
+];
+
 /* ---------- Fenêtre d'une durée (ligne 1a = thématiques) ---------- */
 function levelWindow(app, n) {
   const lv = levelOf(n.data.level);
@@ -414,8 +420,9 @@ function levelWindow(app, n) {
     ...themeList().map(t => ({ icon: '', label: t, cls: todoTheme === t ? 'on' : '', fn: () => { todoTheme = t; render(); }, hold: () => themeMenu(t) })),
     { icon: '', label: NO_THEME, cls: 'notheme ' + (todoTheme === NO_THEME ? 'on' : ''), fn: () => { todoTheme = NO_THEME; render(); } },
     { icon: '', label: '＋', fn: addThemeSheet },
+    ...levelActions(n),
   ]);
-  if (isNow) setActions([{ icon: '☑️', label: 'Check-liste', fn: () => importChecklistSheet(n) }]);   // NOW : importer le contenu d'une check-liste (ligne 1a visible)   // NOW : importer le contenu d'une check-liste (ligne 1a visible)
+  if (isNow) setActions(levelActions(n));   // NOW : pas de thématiques ; seulement l'insertion d'une check-liste et l'Agenda (ligne 1a)
   app.innerHTML = `${isNow ? '' : `<div class="theme-title">${esc(todoTheme === NO_THEME ? NO_THEME + ' Sans thématique' : todoTheme || 'Toutes notes')}</div>`}<div id="n-body"></div>`;
   const entries = () => n.data.items.filter(i => !todoTheme || (todoTheme === NO_THEME ? !i.theme : i.theme === todoTheme)).map(i => ({ t: i, n }));
   bodyTasks($('#n-body', app), { entries, icons: true, add: text => {
@@ -532,6 +539,7 @@ function bodyTasks(box, src) {
         return `<div class="card todo clblock" data-id="${t.id}"><div class="trow">
           <button class="arrow" data-clarrow aria-label="Déplier / replier la check-liste" aria-expanded="${op}">${op ? '▾' : '▸'}</button>
           ${src.icons && e.n.data.level ? `<button class="lvl-ic" data-lvlpick aria-label="Changer la durée">${levelIcon(e.n.data.level)}</button>` : ''}
+          ${src.icons && e.n.data.level && e.n.data.level !== 'urgentissime' ? `<button class="theme-ic ${t.theme ? '' : 'notheme'}" data-themepick aria-label="Thématique" title="${esc(t.theme || 'Sans thématique')}">${themeGlyph(t.theme)}</button>` : ''}
           <span class="cl-mark" title="Check-liste">☑️</span><input type="text" value="${esc(t.t)}" placeholder="Check-liste…">
           <span class="meta cl-count">${nd}/${real.length}</span>
           <button class="info" data-info aria-label="Date d’effacement">ⓘ</button><button data-del aria-label="Supprimer">✕</button></div>
@@ -575,6 +583,7 @@ function bodyTasks(box, src) {
         $('input[type=text]', el).oninput = ev => { t.t = ev.target.value; touch(e.n); save(); };
         $('[data-info]', el).onclick = () => infoSheet(e, draw);
         const lp2 = $('[data-lvlpick]', el); if (lp2) lp2.onclick = () => levelPickSheet(e, draw);
+        const tp2 = $('[data-themepick]', el); if (tp2) tp2.onclick = () => themePickSheet(e, draw);
         $('[data-clarrow]', el).onclick = () => { openCl.has(t.id) ? openCl.delete(t.id) : openCl.add(t.id); draw(); };
         $('[data-del]', el).onclick = () => withUndo('Check-liste supprimée', () => { e.n.data.items.splice(e.n.data.items.indexOf(t), 1); touch(e.n); draw(); });
         const host = $('.clbody', el);
@@ -644,7 +653,7 @@ function importChecklistSheet(n) {
   const cls = liveNotes().filter(x => x.type === 'checklist').sort((a, b) => noteTitle(a).localeCompare(noteTitle(b), 'fr'));
   const tps = listsFor({ scope: 'checklist' }, 'template');
   const btn = (k, id, name, nb) => `<button data-${k}="${id}" style="text-align:left"><strong>${esc(name)}</strong> <span class="meta">${countLabel(nb, 'élément')}</span></button>`;
-  openSheet(`<h3>Importer le contenu d’une check-liste</h3>
+  openSheet(`<h3>Insérer une check-liste</h3>
     ${cls.length ? `<div class="h2">Check-listes</div><div class="btn-list">${cls.map(x => btn('src', x.id, noteTitle(x), x.data.items.filter(i => !i.blk).length)).join('')}</div>` : ''}
     ${tps.length ? `<div class="h2">Listes types</div><div class="btn-list">${tps.map(x => btn('tpl', x.id, x.name, x.items.filter(i => !i.blk).length)).join('')}</div>` : ''}
     ${cls.length || tps.length ? '' : '<p class="empty small">Aucune check-liste à importer.</p>'}
@@ -652,7 +661,7 @@ function importChecklistSheet(n) {
     $('[data-no]', c).onclick = closeSheet;
     const add = (name, items, cols, reset) => {
       const id = uid();
-      n.data.items.unshift({ id, t: name, done: false, prio: 0, note: '', ...(dueFromNow(n.data.level) ? { due: dueFromNow(n.data.level) } : {}),
+      n.data.items.unshift({ id, t: name, done: false, prio: 0, note: '', ...(n.data.level !== 'urgentissime' && todoTheme && todoTheme !== NO_THEME ? { theme: todoTheme } : {}), ...(dueFromNow(n.data.level) ? { due: dueFromNow(n.data.level) } : {}),
         cl: { items: items.map(i => (i.blk ? { id: uid(), t: i.t, done: false, blk: true } : { id: uid(), t: i.t, done: reset ? false : !!i.done })), cols: [1, 2, 3].includes(+cols) ? +cols : 2 } });
       openCl.add(id);   // déployée à la création ; repliée par défaut ensuite
       touch(n); save(); closeSheet(); render(); toast('Check-liste importée ✓');
