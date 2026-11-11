@@ -614,3 +614,80 @@ body:not(.on-menu) .menu-create { display: none; }
 /* Google Agenda : bouton 📆 d'une tâche (allumé quand une date est posée) */
 .card.todo .cal-ic { min-width: 30px; padding: 2px 6px; background: #eee; font-size: 15px; opacity: .55; }
 .card.todo .cal-ic.on { opacity: 1; background: #d6e8ff; }
+
+/* =====================================================================
+   Petits écrans (iPhone SE 320/375 px, iOS 14) : rien ne sort du cadre
+   ===================================================================== */
+html { -webkit-text-size-adjust: 100%; }
+html, body { max-width: 100%; overflow-x: hidden; }   /* filet de sécurité : jamais de défilement latéral de la page */
+
+/* textes longs (titres, noms, adresses, liens) : retour à la ligne au lieu d'élargir la page ; word-break:break-word = équivalent d'« anywhere » compris par Safari 14 */
+#app, .sheet-card, .pop-card, .toast, .fmt-pop { overflow-wrap: break-word; word-break: break-word; }
+.lrow > *, .item > *, .row > *, .tile, .card, .bloc-head > *, .todo > *, .trow > *, .cl-li > *, summary > * { min-width: 0; }
+.lrow, .tile, .card, .bigcard, details.tree > summary { max-width: 100%; }
+.tags .chip, a.chip, button.chip { max-width: 100%; white-space: normal; text-align: left; }
+
+/* iOS : un champ dont la police fait moins de 16 px déclenche un zoom automatique de la page (qui reste ensuite agrandie et « sort du cadre ») */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select, .rte, .blk-t, .card.todo input[type=text], .pop-edit { font-size: 16px !important; }
+}
+
+/* repli pour les navigateurs sans color-mix() (iOS < 16.2) */
+.top-sub { color: #3b3b3b; color: color-mix(in srgb, var(--kc, #000) 78%, #000); }
+.cl-pill .cl-pname { color: var(--kc, #333); color: color-mix(in srgb, var(--kc) 82%, #000); }
+
+/* repli pour les navigateurs sans aspect-ratio (iOS < 15) : vignettes carrées */
+@supports not (aspect-ratio: 1 / 1) {
+  .ph { position: relative; height: 0; padding-bottom: 100%; }
+  .ph img { position: absolute; top: 0; left: 0; }
+}
+
+/* feuilles : hauteur calculée sur la zone réellement visible (--vh est posé par main.js) */
+.sheet-card { max-height: calc(var(--vh, 1vh) * 85); }
+img.big { max-height: calc(var(--vh, 1vh) * 60); }
+
+/* MENU d'accueil : tient dans l'écran sans défiler (3 rangées de 2 boutons + Préférences et ＋ Créer) */
+body.on-menu #app { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+body.on-menu .top-row h1 { white-space: normal; line-height: 16px; font-size: 13px; text-align: center; max-height: 34px; max-width: calc(100% - 110px); letter-spacing: .03em; }
+.menu-wrap { --lowh: clamp(68px, calc(var(--vh, 1vh) * 12.5), 91px);
+  /* côté d'un bouton carré : le plus grand qui tienne en largeur (2 colonnes) ET en hauteur (3 rangées + la ligne du bas), sans aspect-ratio (absent d'iOS 14) */
+  --ms: min(calc((100vw - 36px) / 2), calc((var(--vh, 1vh) * 100 - var(--toph, 60px) - 24px - env(safe-area-inset-bottom) - var(--lowh) - 36px) / 3), 180px);
+  height: calc(var(--vh, 1vh) * 100 - var(--toph, 60px) - 24px - env(safe-area-inset-bottom)); min-height: 0; align-items: center; }
+.menu-all { height: auto; gap: 12px; }
+.menu-grid { flex: none; width: auto; max-width: none; grid-template-columns: repeat(2, var(--ms)); grid-template-rows: repeat(3, var(--ms)); gap: 12px; justify-content: center; }
+.menu-btn { aspect-ratio: auto; width: 100%; height: 100%; min-height: 0; font-size: 15px; padding: 6px 4px; gap: 6px; border-radius: 20px; }
+.menu-btn .mi { font-size: clamp(30px, calc(var(--ms) * .28), 50px); }
+.menu-low { flex: none; }
+.menu-small { width: auto; min-width: 90px; padding: 6px 8px; font-size: 12px; height: var(--lowh); }
+.menu-small .mi { font-size: clamp(24px, calc(var(--lowh) * .34), 31px); }
+
+/* barre du bas : 6 onglets sur 320 px */
+@media (max-width: 360px) {
+  .tabbar button { font-size: 9.5px; padding-inline: 1px; }
+  :root[data-theme] .tabbar .tab-plus { flex-basis: 50px; }
+  .tabbar button span { font-size: 18px; }
+  #app { padding-inline: 10px; }
+  .lvl-tiles.lvl-tall { gap: 6px; }
+  .lvl-tiles.lvl-tall .lvl-tile, .lvl-tiles.lvl-tall .lvl-tile:nth-child(n+4) { min-height: 96px; padding: 10px 6px; }
+  .lvl-tiles.lvl-tall .lvl-tile strong { font-size: 12px; word-break: normal; overflow-wrap: normal; }
+  .lvl-tiles.lvl-tall .lvl-tile .ti { font-size: 24px; }
+  .top-row.has-nav h1 { max-width: calc(100% - 160px); }
+}
+
+/* Écrans étroits (≤ 400 px) : lignes de tâches sur 2 lignes si besoin, boutons de la journée lisibles */
+@media (max-width: 400px) {
+  .card.todo .trow { flex-wrap: wrap; row-gap: 2px; }
+  .card.todo .trow { gap: 4px; }
+  .card.todo .trow input[type=text] { flex: 1 1 90px; width: auto; min-width: 90px; }
+  .card.todo .trow button { min-width: 26px; padding-inline: 5px; }
+  .card.todo .trow .cal-ic { margin-left: auto; }
+  .actions { flex-wrap: wrap; }
+  .actions button { flex: 1 1 auto; padding: 8px 6px; font-size: 14px; white-space: nowrap; }
+}
+@media (max-width: 360px) {
+  .cl-tabic { display: none; }
+  .top-row.has-nav h1 { max-width: calc(100% - 200px); font-size: 12px; letter-spacing: .04em; }
+  .top-row.has-nav h1 .title-pill { font-size: 11px; padding: 2px 6px; margin-left: 4px; }
+  .top-row .tnav-l { left: 44px; } .top-row .tnav-r { right: 50px; }
+  .top-row .tnav { padding: 3px 6px; }
+}
