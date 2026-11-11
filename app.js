@@ -325,6 +325,7 @@ function applySection(r, n) {
   if (sect) document.body.dataset.sect = sect; else delete document.body.dataset.sect;
   const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = SECT_BAR[sect] || '#c4a33f';
 }
+let slideDir = 0;   // sens du dernier glissement entre rubriques (+1 suivante, −1 précédente) : anime l'arrivée de la page, voir swipe.js
 function render() {
   closeSheet();
   if (!['note', 'atheme', 'atout'].includes(parseRoute().name)) dueShown = '';   // l'échéance des tâches est reproposée à chaque ouverture d'une fenêtre À faire
@@ -349,6 +350,7 @@ function render() {
   VIEWS[r.name](app, r);
   syncTop();
   window.scrollTo(0, 0);
+  if (slideDir) { app.removeAttribute('data-slide'); void app.offsetWidth; app.setAttribute('data-slide', slideDir > 0 ? 'next' : 'prev'); slideDir = 0; } else app.removeAttribute('data-slide');
 }
 
 /* Bandeau du haut. Vocabulaire : ligne titre ; sous le titre, ligne 1a = boutons contextuels (#top-actions),
