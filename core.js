@@ -175,6 +175,7 @@
     checklist: (x, i) => (x.blk ? { id: iid(x, i), t: str(x.t, 20000), done: false, blk: true } : { id: iid(x, i), t: str(x.t, 1000), done: !!x.done }),   // blk : bloc de texte pleine largeur
     todo: (x, i) => withRich({ id: iid(x, i), t: str(x.t, 1000), done: !!x.done, prio: [0, 1, 2].includes(x.prio) ? x.prio : 0, note: str(x.note, 20000),
       ...(str(x.theme, 60) ? { theme: str(x.theme, 60) } : {}), ...(num(x.due) > 0 ? { due: Math.round(num(x.due)) } : {}),
+      ...(DATE_RE.test(x.cal) ? { cal: x.cal, ...(TIME_RE.test(x.calTime) ? { calTime: x.calTime } : {}) } : {}),   // date (et heure) dans Google Agenda
       ...(x.cl && typeof x.cl === 'object' ? { cl: { items: arr(x.cl.items).slice(0, 2000).map((it, k) => ITEM_NORM.checklist(it && typeof it === 'object' ? it : {}, k)), cols: [1, 2, 3].includes(+x.cl.cols) ? +x.cl.cols : 2 } } : {}) }, 'noteHtml', x.noteHtml, str(x.note, 20000)),
     birthdays: (x, i) => ({ id: iid(x, i), nom: str(x.nom, 200), j: int(x.j, 1, 31) || 1, m: int(x.m, 1, 12) || 1,
       a: int(x.a, 1000, 3000), note: str(x.note, 2000) }),
@@ -193,6 +194,7 @@
     const o = base(x);
     if (!o || !TYPES.includes(x.type)) return null;
     Object.assign(o, { type: x.type, title: str(x.title, 200), fav: !!x.fav, keep: keep(x.keep) });
+    if (DATE_RE.test(x.cal)) { o.cal = x.cal; if (TIME_RE.test(x.calTime)) o.calTime = x.calTime; }   // date (et heure) dans Google Agenda
     const d = x.data && typeof x.data === 'object' ? x.data : {};
     if (x.type === 'divers' || x.type === 'ecritures') o.data = withRich({ text: str(d.text) }, 'html', d.html, str(d.text));
     else if (x.type === 'password') o.data = { enc: normEnc(d.enc), kid: str(d.kid, 100) };
@@ -205,7 +207,7 @@
     if (!v || typeof v !== 'object' || typeof v.salt !== 'string' || !B64_RE.test(v.salt) || v.salt.length > 100) return null;
     const check = normEnc(v.check);
     const iter = Math.min(2000000, Math.max(100000, Math.round(num(v.iter)) || 310000));
-    return check ? { salt: v.salt, iter, check, updatedAt: num(v.updatedAt) } : null;
+    return check ? { salt: v.salt, iter, check, updatedAt: num(v.updatedAt), ...(str(v.hint, 200).trim() ? { hint: str(v.hint, 200).trim() } : {}) } : null;   // hint : indication EN CLAIR (lisible coffre verrouillé), jamais le mot de passe
   }
 
   function emptyState(current) {
@@ -229,7 +231,7 @@
         }
         return nb;
       }).filter(Boolean);
-      out.days[date] = { date, subtitle: str(d.subtitle, 500), updatedAt: num(d.updatedAt), keep: keep(d.keep), ...(num(d.proposeAt) > 0 ? { proposeAt: num(d.proposeAt) } : {}), blocs };
+      out.days[date] = { date, subtitle: str(d.subtitle, 500), updatedAt: num(d.updatedAt), keep: keep(d.keep), ...(num(d.proposeAt) > 0 ? { proposeAt: num(d.proposeAt) } : {}), ...(d.cal ? { cal: true } : {}), blocs };
     }
     out.todos = arr(s.todos).map(normTodo).filter(Boolean);
     // anciens « mémos » v2 → notes « divers »
@@ -258,7 +260,7 @@
     for (const date of new Set([...Object.keys(a.days), ...Object.keys(b.days)])) {
       const x = a.days[date], y = b.days[date];
       const win = !y || (x && x.updatedAt >= y.updatedAt) ? x : y;
-      out.days[date] = { date, subtitle: win.subtitle, updatedAt: win.updatedAt, keep: keep(win.keep), ...(win.proposeAt ? { proposeAt: win.proposeAt } : {}),
+      out.days[date] = { date, subtitle: win.subtitle, updatedAt: win.updatedAt, keep: keep(win.keep), ...(win.proposeAt ? { proposeAt: win.proposeAt } : {}), ...(win.cal ? { cal: true } : {}),
         blocs: mergeById(x ? x.blocs : [], y ? y.blocs : []).sort(byPos) };
     }
     out.todos = mergeById(a.todos, b.todos);
@@ -289,7 +291,7 @@
     }
     for (const [date, sd] of Object.entries(snap.days)) {
       const cd = cur.days[date];
-      if (!cd || sd.subtitle !== cd.subtitle || sd.keep !== cd.keep) sd.updatedAt = t;
+      if (!cd || sd.subtitle !== cd.subtitle || sd.keep !== cd.keep || !!sd.cal !== !!cd.cal) sd.updatedAt = t;
       list(sd.blocs, cd ? cd.blocs : []);
     }
     if (snap.vault && JSON.stringify(snap.vault) !== JSON.stringify(cur.vault)) snap.vault.updatedAt = t;

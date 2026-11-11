@@ -610,3 +610,7 @@ body:not(.on-menu) .menu-create { display: none; }
 .menu-low { gap: 14px; }
 .menu-small { width: 91px; height: 91px; border-radius: 19px; font-size: 13px; }
 .menu-small .mi { font-size: 31px; }
+
+/* Google Agenda : bouton 📆 d'une tâche (allumé quand une date est posée) */
+.card.todo .cal-ic { min-width: 30px; padding: 2px 6px; background: #eee; font-size: 15px; opacity: .55; }
+.card.todo .cal-ic.on { opacity: 1; background: #d6e8ff; }

@@ -131,3 +131,28 @@ console.log('texte enrichi OK');
   assert.equal(Core.migrate({ todos: [{ id: 'x', proposeAt: 'abc', keep: 'zzz' }] }, 'd').todos[0].proposeAt, undefined);
   console.log('à la demande OK');
 }
+// coffre : l'indication (en clair) traverse la normalisation, vide ou trop longue → nettoyée
+{
+  const V0 = { salt: 'AAAA', iter: 310000, check: { iv: 'AAAA', ct: 'AAAA' }, updatedAt: 1 };
+  assert.equal(Core.migrate({ vault: { ...V0, hint: '  chat + année  ' } }, T).vault.hint, 'chat + année');
+  assert.equal(Core.migrate({ vault: { ...V0, hint: '   ' } }, T).vault.hint, undefined);
+  assert.equal(Core.migrate({ vault: V0 }, T).vault.hint, undefined);
+  assert.equal(Core.migrate({ vault: { ...V0, hint: 'x'.repeat(500) } }, T).vault.hint.length, 200);
+  console.log('indication du coffre OK');
+}
+// Google Agenda : dates des tâches / mémos et marque des journées traversent la migration et la fusion
+{
+  const s = Core.migrate({ days: { [T]: { subtitle: 's', cal: true, blocs: [] }, '2026-11-09': { subtitle: 'x', blocs: [] } },
+    notes: [{ id: 'n1', type: 'divers', cal: '2026-10-13', calTime: '09:30', data: { text: 'a' } }, { id: 'n2', type: 'divers', cal: 'pas-une-date', calTime: '99:99', data: { text: 'b' } },
+      { id: 'td', type: 'todo', data: { level: 'urgent', items: [{ id: 'i1', t: 'x', cal: '2026-12-01', calTime: '25:00' }, { id: 'i2', t: 'y', cal: '1/2/3' }] } }] }, T);
+  assert.equal(s.days[T].cal, true); assert.equal(s.days['2026-11-09'].cal, undefined);
+  assert.equal(s.notes[0].cal, '2026-10-13'); assert.equal(s.notes[0].calTime, '09:30');
+  assert.equal(s.notes[1].cal, undefined); assert.equal(s.notes[1].calTime, undefined);
+  assert.equal(s.notes[2].data.items[0].cal, '2026-12-01'); assert.equal(s.notes[2].data.items[0].calTime, undefined); assert.equal(s.notes[2].data.items[1].cal, undefined);
+  assert.equal(Core.merge(s, Core.emptyState(T), T).days[T].cal, true);
+  const off = J(s); delete off.days[T].cal; off.days[T].updatedAt = 99;
+  assert.equal(Core.merge(s, off, T).days[T].cal, undefined);   // le plus récent gagne
+  const cur = J(s), snap = J(s); delete cur.days[T].cal;
+  assert.equal(Core.restoreFrom(snap, cur, 500).days[T].updatedAt, 500);   // annuler un retrait de l'agenda est re-daté
+  console.log('google agenda (données) OK');
+}

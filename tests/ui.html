@@ -24,7 +24,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   w.print = () => { w.__printed = true; };
   try {
     // --- Démarrage : page MENU d'accueil
-    ok(w.location.hash === '#/menu' && $('#view-title').innerText === 'APPLI MEMO / version N° 1.1.3', 'démarrage : page MENU, titre « APPLI MEMO / version N° x.x.x »');
+    ok(w.location.hash === '#/menu' && $('#view-title').innerText === 'APPLI MEMO / version N° 1.1.4', 'démarrage : page MENU, titre « APPLI MEMO / version N° x.x.x »');
     ok($$('#app .menu-btn').map(b => b.innerText.trim().replace(/^\S+\s*/, '')).join('|') === 'Journée|À faire|Check-listes|Mémos|Bibliothèque|Accès rapide' && !!$('#app [data-go=reglages]') && $$('#app .menu-btn').every(b => Math.abs(b.offsetWidth - b.offsetHeight) < 3) && $('#menu-add').offsetWidth < 100 && Math.abs($('#menu-add').offsetWidth - $('#app [data-go=reglages]').offsetWidth) < 3, 'MENU : gros boutons pour tous les onglets, Préférences et Créer');
     ok(getComputedStyle($('#tabbar')).display === 'none', 'MENU : barre d\'onglets du bas masquée');
     click('#app [data-go=checklists]'); await wait(60); ok(w.location.hash === '#/checklists' && getComputedStyle($('#tabbar')).display !== 'none', 'MENU › Check-listes : onglets visibles');
@@ -419,9 +419,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
     // --- Coffre
     await mk('password', 'Perso'); ok(txt().includes('Créer mon mot de passe du coffre'), 'coffre : invite à créer le mot de passe');
-    click('#v-setup'); fill({ a: 'court', b: 'court', ok: true }); await wait(50);
+    click('#v-setup'); fill({ a: 'court', b: 'court', h: 'indice', ok: true }); await wait(50);
     ok(!S().vault, 'coffre : mot de passe trop court refusé');
-    fill({ a: 'MotDePasse-Solide1', b: 'MotDePasse-Solide1', ok: true }); await wait(800);
+    fill({ a: 'MotDePasse-Solide1', b: 'MotDePasse-Solide1', h: 'prénom du chat + année', ok: true }); await wait(800);
     ok(!!S().vault && txt().includes('Ajouter'), 'coffre créé et déverrouillé');
     click('#p-add'); fill({ site: 'banque.fr', login: 'jean', pwd: 'S3cret-ÉÉ!', note: '' }); await wait(500);
     const pn = S().notes.at(-1);

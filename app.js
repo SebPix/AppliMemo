@@ -45,7 +45,7 @@ async function copyText(text, what = 'Copié') {
 function loadPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { /* ignoré */ }
-  return Object.assign({ theme: 'auto', lockMin: 2, bunny: '', levelDays: {} }, p);
+  return Object.assign({ theme: 'auto', lockMin: 2, bunny: '', levelDays: {}, gmail: '', gClient: '', gCal: 'primary', gTitleOnly: true }, p);
 }
 let prefs = loadPrefs();
 function savePrefs() { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* ignoré */ } applyTheme(); }
@@ -76,8 +76,10 @@ const MEMO_TYPES = Core.TYPES.filter(t => t !== 'checklist' && t !== 'todo');   
 const noteById = id => liveNotes().find(n => n.id === id);
 
 let saveTimer = null;
+const saveHooks = [];   // fonctions appelées après chaque modification (ex. synchronisation Google Agenda, voir gcal.js)
 function save() {
   $('#save-state').textContent = '…';
+  saveHooks.forEach(f => f());
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flush, 250);
 }
@@ -240,7 +242,7 @@ function promptSheet(title, { label = '', value = '', okLabel = 'OK', type = 'te
 const VIEWS = {};            // rempli par les fichiers de vues : VIEWS[nom] = (app, params) => …
 let renderTok = 0;           // invalide les rendus asynchrones périmés
 let navCount = 0;            // nombre de navigations depuis le chargement (pour le bouton retour)
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 const TITLES = { menu: `APPLI MEMO / version N° ${APP_VERSION}`, journee: 'MA JOURNÉE', afaire: 'À FAIRE', checklists: 'CHECK-LISTES', memos: 'MÉMOS', biblio: 'BIBLIOTHÈQUE', reglages: 'PRÉFÉRENCES' };
 
 function parseRoute() {

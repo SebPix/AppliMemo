@@ -251,8 +251,8 @@ VIEWS.note = (app, r) => {
   }
   // Dupliquer / PDF / Supprimer : dans la ligne 1a du bandeau (+ sauvegarde, versions, listes types pour les check-listes). Pas de PDF pour le coffre.
   // check-liste : renommer / dupliquer / supprimer / sauvegarder / versions / listes types sont à la racine de l'onglet Check-listes
-  isCL ? setActions([keepAction(n, () => render()), { icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) },
-    ...listActions(checkCtx(n), { pdf: false }).filter(a => a.label === 'Définir comme type')]) : setActions([keepAction(n, () => render()), { icon: '⧉', label: 'Dupliquer', fn: dupNote },
+  isCL ? setActions([keepAction(n, () => render()), { icon: n.cal ? '📆✓' : '📆', label: 'Agenda', fn: () => Gcal.noteSheet(n, () => render()) }, { icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) },
+    ...listActions(checkCtx(n), { pdf: false }).filter(a => a.label === 'Définir comme type')]) : setActions([keepAction(n, () => render()), { icon: n.cal ? '📆✓' : '📆', label: 'Agenda', fn: () => Gcal.noteSheet(n, () => render()) }, { icon: '⧉', label: 'Dupliquer', fn: dupNote },
     ...(n.type !== 'password' ? [{ icon: '📄', label: 'PDF', fn: () => printKeys(['n:' + n.id]) }] : []),
     { icon: '🗑', label: 'Supprimer', fn: delNote, cls: 'danger' }, ...(isCL ? listActions(checkCtx(n), { pdf: false }) : []), ...(n.type === 'todo' ? listActions(todoCtx(n), { pdf: false }) : [])]);
   const box = $('#n-body');
@@ -536,7 +536,9 @@ async function bodyPassword(box, n) {
   if (!vaultKey) {
     msg(`<form class="card" id="v-form"><h3 style="margin-top:0">🔒 Coffre verrouillé</h3>
       <input type="password" id="v-pw" placeholder="Mot de passe du coffre" autocomplete="current-password">
-      <button class="btn-gold" type="submit" style="width:100%;margin-top:10px">Déverrouiller</button></form>`);
+      <button class="btn-gold" type="submit" style="width:100%;margin-top:10px">Déverrouiller</button>
+      <button type="button" id="v-hint" style="width:100%;margin-top:8px">💡 Indice</button><p id="v-hint-t" class="meta" hidden style="margin-top:8px"></p></form>`);
+    $('#v-hint', box).onclick = () => { const p = $('#v-hint-t', box); p.hidden = !p.hidden; p.textContent = state.vault.hint || 'Aucune indication enregistrée (⚙︎ Préférences → Mots de passe).'; };
     const input = $('#v-pw', box); setTimeout(() => input.focus(), 80);
     return ($('#v-form', box).onsubmit = async e => {
       e.preventDefault();

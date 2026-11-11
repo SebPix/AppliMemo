@@ -91,6 +91,7 @@ VIEWS.journee = (app, r) => {
       <div class="row actions">
         <button class="btn-red" id="b-reset">Vider</button>
         <button id="b-chrono" title="Trier par horaire">🕒 Trier</button>
+        <button id="b-cal" title="Google Agenda">${d.cal ? '📆✓' : '📆'} Agenda</button>
         <button class="btn-green" id="b-add">＋ Bloc</button>
       </div>
     </section>
@@ -98,6 +99,7 @@ VIEWS.journee = (app, r) => {
     <div id="blocs"></div>`;
   $('#b-add').onclick = addBloc;
   $('#b-chrono').onclick = sortChrono;
+  $('#b-cal').onclick = () => Gcal.daySheet(d, () => render());
   $('#b-reset').onclick = () => {
     if (!live(d.blocs).length) return toast('Aucun bloc à effacer.');
     confirmSheet('Effacer TOUS les blocs de la journée ?', 'Effacer', () => withUndo('Blocs effacés', () => { live(d.blocs).forEach(kill); render(); }));
@@ -541,6 +543,7 @@ function bodyTasks(box, src) {
           ${src.icons && e.n.data.level ? `<button class="lvl-ic" data-lvlpick aria-label="Changer la durée">${levelIcon(e.n.data.level)}</button>` : ''}
           ${src.icons && e.n.data.level && e.n.data.level !== 'urgentissime' ? `<button class="theme-ic ${t.theme ? '' : 'notheme'}" data-themepick aria-label="Thématique" title="${esc(t.theme || 'Sans thématique')}">${themeGlyph(t.theme)}</button>` : ''}
           <input type="text" value="${esc(t.t)}" placeholder="Tâche…">
+          <button class="cal-ic ${t.cal ? 'on' : ''}" data-cal aria-label="Google Agenda" title="${t.cal ? esc('Dans l’agenda le ' + t.cal + (t.calTime ? ' à ' + t.calTime : '')) : 'Ajouter à Google Agenda'}">📆</button>
           <button class="info" data-info aria-label="Date d’effacement">ⓘ</button>
           <button class="arrow ${has ? 'has' : ''}" data-arrow aria-label="Détails" aria-expanded="${isOpen}">${isOpen ? '▲' : '▼'}</button>
           <button data-del aria-label="Supprimer">✕</button>
@@ -587,6 +590,7 @@ function bodyTasks(box, src) {
       $('input[type=checkbox]', el).onchange = ev => { t.done = ev.target.checked; touch(e.n); save(); draw(); };
       $('input[type=text]', el).oninput = ev => { t.t = ev.target.value; touch(e.n); save(); };
       $('[data-info]', el).onclick = () => infoSheet(e, draw);
+      $('[data-cal]', el).onclick = () => Gcal.taskSheet(e, draw);
       const tp = $('[data-themepick]', el); if (tp) tp.onclick = () => themePickSheet(e, draw);
       const lp = $('[data-lvlpick]', el); if (lp) lp.onclick = () => levelPickSheet(e, draw);
       $$('[data-arrow]', el).forEach(b => (b.onclick = () => {

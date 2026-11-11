@@ -18,10 +18,33 @@ function lockVault(silent) {
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (vaultKey) armLock(); }, true));
 document.addEventListener('visibilitychange', () => { if (document.hidden && prefs.lockMin === 0) lockVault(true); });
 
+/** Champ « indication » : sert à se souvenir du mot de passe ; stockée EN CLAIR (visible coffre verrouillé), donc jamais le mot de passe lui-même. */
+const hintField = v => `<label>Indication pour te rappeler du mot de passe<input type="text" name="h" maxlength="200" value="${esc(v)}" autocomplete="off" placeholder="ex. prénom du chat + année de naissance"></label>
+  <p class="meta">⚠️ Cette indication reste <b>lisible sans déverrouiller le coffre</b> (et figure dans les exports .json) : n’y écris pas le mot de passe, juste de quoi te le rappeler.</p>`;
+const hintError = (hint, pw) => {
+  const h = (hint || '').trim();
+  if (!h) return 'Écris une indication pour te rappeler du mot de passe.';
+  if (pw && h.toLowerCase().includes(pw.toLowerCase())) return 'L’indication ne doit pas contenir le mot de passe lui-même.';
+  return '';
+};
+/** Modifier l'indication sans changer le mot de passe. */
+function vaultHintSheet() {
+  openSheet(`<h3>💡 Indication du mot de passe</h3><form class="form">${hintField(state.vault.hint || '')}
+    <div class="row" style="margin-top:8px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Enregistrer</button></div></form>`, c => {
+    $('[data-no]', c).onclick = closeSheet;
+    $('form', c).onsubmit = e => {
+      e.preventDefault();
+      const err = hintError(e.target.h.value); if (err) return toast(err);
+      state.vault.hint = e.target.h.value.trim(); state.vault.updatedAt = now(); save(); closeSheet(); toast('Indication enregistrée ✓'); render();
+    };
+  });
+}
+
 function vaultSetupSheet(onDone) {
   openSheet(`<h3>🔐 Mot de passe du coffre</h3><form class="form">
     <label>Mot de passe (8 caractères minimum)<input type="password" name="a" autocomplete="new-password"></label>
     <label>Confirmer<input type="password" name="b" autocomplete="new-password"></label>
+    ${hintField('')}
     <label class="row" style="gap:8px"><input type="checkbox" name="ok" style="width:auto"><span>Je comprends qu’il ne peut <strong>pas être récupéré</strong> : sans lui, le contenu est perdu.</span></label>
     <div class="row" style="margin-top:8px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Créer</button></div></form>`, c => {
     $('[data-no]', c).onclick = closeSheet;
@@ -30,8 +53,9 @@ function vaultSetupSheet(onDone) {
       const f = e.target;
       if (f.a.value.length < 8) return toast('8 caractères minimum.');
       if (f.a.value !== f.b.value) return toast('Les deux saisies diffèrent.');
+      const h = hintError(f.h.value, f.a.value); if (h) return toast(h);
       if (!f.ok.checked) return toast('Coche la case pour confirmer.');
-      const { vault, key } = await Vault.create(f.a.value);
+      const { vault, key } = await Vault.create(f.a.value); vault.hint = f.h.value.trim();
       state.vault = vault; vaultKey = key; armLock(); save(); closeSheet(); toast('Coffre créé 🔐'); onDone && onDone();
     };
   });
@@ -41,6 +65,7 @@ function vaultChangeSheet() {
     <label>Mot de passe actuel<input type="password" name="o" autocomplete="current-password"></label>
     <label>Nouveau (8 caractères minimum)<input type="password" name="a" autocomplete="new-password"></label>
     <label>Confirmer le nouveau<input type="password" name="b" autocomplete="new-password"></label>
+    ${hintField(state.vault.hint || '')}
     <div class="row" style="margin-top:8px"><button type="button" class="grow" data-no>Annuler</button><button class="grow btn-gold" type="submit">Changer</button></div></form>`, c => {
     $('[data-no]', c).onclick = closeSheet;
     $('form', c).onsubmit = async e => {
@@ -48,6 +73,7 @@ function vaultChangeSheet() {
       const f = e.target;
       if (f.a.value.length < 8) return toast('8 caractères minimum.');
       if (f.a.value !== f.b.value) return toast('Les deux saisies diffèrent.');
+      const he = hintError(f.h.value, f.a.value); if (he) return toast(he);
       const oldKey = await Vault.unlock(f.o.value, state.vault);
       if (!oldKey) return toast('Mot de passe actuel incorrect.');
       const notes = liveNotes().filter(n => n.type === 'password' && n.data.enc);
@@ -57,7 +83,7 @@ function vaultChangeSheet() {
           if (n.data.kid && n.data.kid !== state.vault.salt) throw new Error('kid');
           plain.push(await Vault.decrypt(oldKey, n.data.enc));
         }
-        const { vault, key } = await Vault.create(f.a.value);
+        const { vault, key } = await Vault.create(f.a.value); vault.hint = f.h.value.trim();
         const encs = []; for (const p of plain) encs.push(await Vault.encrypt(key, p));
         notes.forEach((n, i) => { n.data.enc = encs[i]; n.data.kid = vault.salt; touch(n); });
         state.vault = vault; vaultKey = key; armLock(); save(); closeSheet(); toast('Mot de passe changé ✓'); render();
@@ -178,9 +204,9 @@ VIEWS.reglages = app => {
       ${todoLevels().map(l => `<label class="row" style="margin-top:6px"><span class="grow">${l.icon} ${esc(l.label)}</span><input type="number" min="0" max="3650" inputmode="numeric" data-ld="${l.id}" value="${levelDays(l.id)}" style="width:90px"></label>`).join('')}</div>
 
     <div class="card"><h3>🔐 Mots de passe</h3>
-      <p class="meta">${v ? (vaultKey ? 'Coffre déverrouillé.' : 'Coffre verrouillé.') : 'Aucun mot de passe de coffre défini.'}</p>
+      <p class="meta">${v ? (vaultKey ? 'Coffre déverrouillé.' : 'Coffre verrouillé.') + (v.hint ? '' : ' ⚠️ Aucune indication enregistrée pour te rappeler du mot de passe.') : 'Aucun mot de passe de coffre défini.'}</p>
       <div class="btn-list">
-        ${v ? `<button id="p-vchg">Changer le mot de passe du coffre</button>${vaultKey ? '<button id="p-vlock">🔒 Verrouiller maintenant</button>' : ''}` : '<button id="p-vset" class="btn-gold">Créer le mot de passe du coffre</button>'}
+        ${v ? `<button id="p-vchg">Changer le mot de passe du coffre</button><button id="p-vhint">💡 ${v.hint ? 'Modifier l’indication' : 'Ajouter une indication'} du mot de passe</button>${vaultKey ? '<button id="p-vlock">🔒 Verrouiller maintenant</button>' : ''}` : '<button id="p-vset" class="btn-gold">Créer le mot de passe du coffre</button>'}
         <label>Verrouillage automatique<select id="p-lock">
           <option value="0">Quand l’app passe en arrière-plan</option><option value="1">Après 1 min d’inactivité</option><option value="2">Après 2 min</option>
           <option value="5">Après 5 min</option><option value="15">Après 15 min</option><option value="30">Après 30 min</option></select></label></div></div>
@@ -188,6 +214,8 @@ VIEWS.reglages = app => {
     <div class="card"><h3>🖼️ Photos (Bunny)</h3>
       <p class="meta">Adresse de ta zone de diffusion Bunny. Tu pourras ensuite saisir seulement le chemin des photos (ex. <code>vacances/plage.jpg</code>).</p>
       <input id="p-bunny" placeholder="https://ma-zone.b-cdn.net" value="${esc(prefs.bunny)}" autocapitalize="off"></div>
+
+    ${Gcal.settingsCard()}
 
     <div class="card"><h3>👤 Compte</h3>
       <p class="meta">La connexion et la synchronisation automatique entre appareils arriveront plus tard, sur invitation.</p>
@@ -208,6 +236,7 @@ VIEWS.reglages = app => {
   $('#p-pdf-all').onclick = () => printKeys(allKeys());
   const vs = $('#p-vset'); if (vs) vs.onclick = () => vaultSetupSheet(() => render());
   const vc = $('#p-vchg'); if (vc) vc.onclick = vaultChangeSheet;
+  const vh = $('#p-vhint'); if (vh) vh.onclick = vaultHintSheet;
   const vl = $('#p-vlock'); if (vl) vl.onclick = () => lockVault();
   $('#p-bunny').onchange = e => {
     const raw = e.target.value.trim();
@@ -216,6 +245,7 @@ VIEWS.reglages = app => {
     if (!u) return toast('Adresse invalide (https://…).');
     prefs.bunny = u.replace(/\/+$/, ''); e.target.value = prefs.bunny; savePrefs(); toast('Adresse Bunny enregistrée ✓');
   };
+  Gcal.bindSettings(app);
   $('#p-wipe').onclick = () => confirmSheet('Tout effacer (journées, tâches, mémos, coffre) ?', 'Tout effacer', () => withUndo('Données effacées', () => {
     live(state.todos).forEach(kill); liveNotes().forEach(kill);
     Object.values(state.days).forEach(d => { live(d.blocs).forEach(kill); d.subtitle = ''; touch(d); });
