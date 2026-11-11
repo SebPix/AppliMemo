@@ -1,5 +1,5 @@
 // Service worker : fonctionnement hors-ligne (cache d'abord, mise à jour en arrière-plan).
-const CACHE = 'applimemo-v113';
+const CACHE = 'applimemo-v114';
 const ASSETS = ['./', 'index.html', 'styles.css', 'core.js', 'vault.js', 'app.js', 'rich.js', 'journee.js', 'lists.js', 'notes.js', 'voice.js', 'quickadd.js', 'library.js', 'gcal.js', 'settings.js', 'swipe.js', 'amelio.js', 'main.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {

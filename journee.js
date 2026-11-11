@@ -693,7 +693,7 @@ function titleArrows(cur) {
   ref.innerHTML = `À FAIRE <span class="title-pill">🧐 Toutes les tâches</span>`;
   row.appendChild(ref); const w = ref.getBoundingClientRect().width; ref.remove();
   const cx = row.getBoundingClientRect().width / 2, aw = $('.tnav', row).getBoundingClientRect().width;
-  const lo = Math.max(0, ...['#btn-back', '#top-ico'].map(q => { const e = $(q); return e && !e.hidden ? e.getBoundingClientRect().right : 0; }));
+  const lo = Math.max(0, ...['#top-ico'].map(q => { const e = $(q); return e && !e.hidden ? e.getBoundingClientRect().right : 0; }));
   const hi = $('#btn-gear').getBoundingClientRect().left - 6;   // s'arrête avant la roue (le ✓ de sauvegarde passe brièvement sous la flèche)
   const cap = Math.min(cx - lo, hi - cx) - 2;
   row.style.setProperty('--navhalf', Math.max(40, Math.floor(Math.min(Math.ceil(w / 2) + 1, cap - aw - 4))) + 'px');

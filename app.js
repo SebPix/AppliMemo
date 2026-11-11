@@ -341,7 +341,6 @@ function render() {
   const tab = n && n.type === 'checklist' ? 'checklists' : n && n.type === 'todo' ? 'afaire' : TAB_OF[r.name];
   $$('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.view === tab));
   if (tab) tabLast[tab] = location.hash || '#/' + tab;
-  $('#btn-back').hidden = !(PARENT[r.name] || (r.name === 'journee' && r.date));   // une journée ouverte : retour à la racine Journée
   $('#view-title').textContent = TITLES[r.name] || '';
   $('#view-title').classList.remove('tt'); topSub = ''; topSubAlways = false; titleEdit = null;
   document.body.classList.remove('tpl-page');
@@ -351,8 +350,8 @@ function render() {
   $$('.top-row .tnav').forEach(x => x.remove()); $('.top-row').classList.remove('has-nav', 'has-tgl');
   { const fr = $('#filter-rows'); fr.hidden = true; fr.innerHTML = ''; }   // lignes de filtres : propres à la liste complète d'Accès rapide   // flèches de durée : propres à la fenêtre d'un niveau
   libChrome(r);
-  { // page racine d'une rubrique : l'icône du menu, tout à gauche de la barre du haut (à la place du bouton retour)
-    const ico = r.name === 'journee' && !r.date ? '📅' : { afaire: '👁️', checklists: '☑️', memos: '📝' }[r.name] || (r.name === 'biblio' ? (libOverview ? '<b class="rb-star">★</b>' : '📚') : '');
+  { // icône du menu (rubrique) de la page, tout à gauche de la barre du haut, sur toutes les pages d'une rubrique
+    const ico = { journee: '📅', afaire: '👁️', checklists: '☑️', memos: '📝', biblio: libOverview ? '<b class="rb-star">★</b>' : '📚' }[tab] || '';
     const ti = $('#top-ico'); ti.innerHTML = ico; ti.hidden = !ico;
   }
   setActions(null);
@@ -455,7 +454,7 @@ function foldNext() {
   }
   syncTop();
 }
-/* Titre : un clic ouvre la page MENU d'accueil ; un appui long (1 s) replie l'en-tête (cycle foldNext). */
+/* Titre : un clic remonte d'un niveau dans l'arborescence (page racine : accueil) ; un appui long (1 s) replie l'en-tête (cycle foldNext). */
 let pressTimer = 0, longFired = false;
 const titleEl = $('#view-title');
 titleEl.addEventListener('pointerdown', e => {
@@ -466,8 +465,8 @@ titleEl.addEventListener('pointerdown', e => {
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => titleEl.addEventListener(t, () => clearTimeout(pressTimer)));
 titleEl.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('resize', () => { if (actionsExpanded) syncTop(); });
-titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); return; } if (e.target.closest('button, a')) return; nav('#/menu'); });
-$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); } else nav('#/menu'); } });
+titleEl.addEventListener('click', e => { if (longFired) { longFired = false; return; } if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); return; } if (e.target.closest('button, a')) return; goUp(); });
+$('#view-title').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.target.closest('.tt-pen')) { if (titleEdit) titleEdit(); } else goUp(); } });
 // un éditeur de texte qui apparaît / disparaît change la disponibilité de la ligne 1b
 new MutationObserver(syncTop).observe($('#app'), { childList: true, subtree: true });   // callbacks déjà groupés par le navigateur
 window.addEventListener('hashchange', () => { navCount++; foldIdx = 0; actionsExpanded = false; render(); });
@@ -479,10 +478,14 @@ $('#tabbar').addEventListener('click', e => {
 // roue crantée : 1 clic = Préférences ; 2 clics rapprochés = retour à la page MENU d'accueil
 let gearAt = 0;
 $('#btn-gear').onclick = () => { const t = Date.now(); if (t - gearAt < 450) { gearAt = 0; nav('#/menu'); } else { gearAt = t; nav('#/reglages'); } };
-$('#btn-back').onclick = () => {
-  const r = parseRoute();
-  const n = r.name === 'note' ? noteById(r.id) : null;
-  if (r.name === 'journee' && r.date) return nav('#/journee');   // journée ouverte : retour direct à la racine Journée
-  if (r.name === 'atheme' || r.name === 'atout' || (n && n.type === 'todo')) return nav('#/afaire');   // fenêtres À faire : retour direct à l'onglet racine (même après avoir circulé entre durées)
-  if (navCount > 0) history.back(); else nav(n ? (n.type === 'checklist' ? '#/checklists' : n.type === 'todo' ? '#/afaire' : `#/memos/type/${n.type}`) : PARENT[r.name] || '#/memos');
-};
+/** Page « au-dessus » dans l'arborescence (null : page racine → le clic sur le titre mène alors à l'accueil). */
+function parentHash(r) {
+  if (r.name === 'journee') return r.date ? '#/journee' : null;
+  if (r.name === 'note') {
+    const n = noteById(r.id);
+    return !n ? '#/memos' : n.type === 'checklist' ? '#/checklists' : n.type === 'todo' ? '#/afaire' : `#/memos/type/${n.type}`;
+  }
+  return PARENT[r.name] || null;
+}
+/** Clic sur le titre : monte d'un niveau dans l'arborescence ; depuis une page racine, retour à l'accueil. */
+function goUp() { nav(parentHash(parseRoute()) || '#/menu'); }
