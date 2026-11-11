@@ -312,10 +312,11 @@ const rememberedHash = tab => {
 };
 function nav(hash) { if (location.hash === hash) render(); else location.hash = hash; }
 /* Couleurs par rubrique : barre du haut (--sbar) et fond de page (--sbg), voir styles.css « body[data-sect] ».
- * Page MENU, Préférences et Bibliothèque gardent le jaune d'origine (pas de data-sect). */
-const SECT_BAR = { journee: '#ed1a1a', afaire: '#1a6bed', checklists: '#15cf5c', memos: '#e39f17', quick: '#b3b3b3' };
+ * Page MENU et Préférences gardent le jaune d'origine (pas de data-sect). */
+const SECT_BAR = { journee: '#ed1a1a', afaire: '#1a6bed', checklists: '#15cf5c', memos: '#e39f17', lib: '#9278b0', quick: '#b3b3b3' };
 function sectionOf(r, n) {
-  if (r.name === 'biblio') return libOverview ? 'quick' : '';   // Accès rapide = page 2/2 de la Bibliothèque
+  if (r.name === 'biblio') return libOverview ? 'quick' : 'lib';   // Accès rapide = page 2/2 de la Bibliothèque
+  if (r.name === 'tag') return 'lib';
   if (r.name === 'note') return !n ? 'memos' : n.type === 'checklist' ? 'checklists' : n.type === 'todo' ? 'afaire' : 'memos';
   const t = { journee: 'journee', jtype: 'journee', afaire: 'afaire', atheme: 'afaire', atout: 'afaire', checklists: 'checklists', cltype: 'checklists', memos: 'memos', type: 'memos' }[r.name];
   return t || '';
